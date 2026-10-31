@@ -2,7 +2,13 @@
 
 No database needed. Database and endpoint tests belong in test_intake_documents.py.
 """
-from app.services.guideline_insights import CHUNK_CHARS, MAX_SINGLE_CALL_CHARS, split_text
+from app.services.guideline_insights import (
+    CHUNK_CHARS,
+    MAX_SINGLE_CALL_CHARS,
+    fields_needing_second_pass,
+    is_placeholder,
+    split_text,
+)
 from app.services.intake import build_gap_report, field_status
 
 
@@ -68,3 +74,20 @@ def test_long_text_is_split_into_chunks_that_cover_everything():
     assert len(chunks) > 1
     assert all(len(c) <= CHUNK_CHARS for c in chunks)
     assert "".join(chunks) == text
+
+
+def test_placeholder_detected_in_source_text():
+    assert is_placeholder("Reapplication: [PLACEHOLDER: interval].")
+    assert is_placeholder("[placeholder: colour]")
+    assert not is_placeholder("Reapply every two hours.")
+
+
+def test_second_pass_asks_only_about_unanswered_fields_not_listed_as_missing():
+    fields = [{"id": "IF-012"}, {"id": "IF-013"}, {"id": "IF-014"}]
+    missing = fields_needing_second_pass(fields, answered_ids={"IF-012"}, not_found_ids={"IF-014"})
+    assert [f["id"] for f in missing] == ["IF-013"]
+
+
+def test_second_pass_empty_when_every_field_is_answered_or_missing():
+    fields = [{"id": "IF-012"}, {"id": "IF-013"}]
+    assert fields_needing_second_pass(fields, {"IF-012"}, {"IF-013"}) == []

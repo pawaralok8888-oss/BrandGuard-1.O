@@ -31,6 +31,11 @@ MAX_EVIDENCE_CHARS = 300
 NO_TEXT_MESSAGE = "No readable text. Upload a text-based PDF or a DOCX, not a scanned image."
 AI_FAILED_MESSAGE = "AI reading failed. Use Reprocess to try again."
 UNEXPECTED_MESSAGE = "Processing failed unexpectedly. Use Reprocess to try again."
+REVIEW_PREFIX = "[Needs review: the source text still has a placeholder] "
+NO_ANSWERS_MESSAGE = (
+    "The reader found no usable answers in this document for the fields in this category. "
+    "Check the document text, or use Reprocess."
+)
 
 SYSTEM_PROMPT = """You read one brand guideline document and answer a list of brand intake fields.
 
@@ -43,6 +48,16 @@ Rules:
   - confidence: a number from 0 to 1. Use lower values when the wording is vague or partial.
 - If the document does not answer a field, put its fieldId in "notFound".
 - Reply with one JSON object only, with the keys "insights" and "notFound". No prose, no markdown."""
+
+
+def is_placeholder(text: str) -> bool:
+    """True when source text still contains a template placeholder such as [PLACEHOLDER: interval]."""
+    return "PLACEHOLDER" in text.upper()
+
+
+def fields_needing_second_pass(fields, answered_ids: set[str], not_found_ids: set[str]) -> list:
+    """Fields the model neither answered nor said were missing. They get one focused call each."""
+    return [f for f in fields if f["id"] not in answered_ids and f["id"] not in not_found_ids]
 
 
 class InsightItem(BaseModel):
@@ -98,15 +113,24 @@ def _process(document_id: str, pool) -> None:
         )
 
     try:
-        merged = _read_with_model(text, fields)
+        merged, stats = _read_with_model(text, fields)
     except AIUnavailable:
         logger.warning("Model could not read document %s", document_id)
         _set_document_state(pool, document_id, "failed", AI_FAILED_MESSAGE)
         return
 
+    # Warnings are shown by the server log by default; info lines are not. Keep counts only, never text.
+    logger.warning(
+        "Document %s: model returned %d answer(s), %d dropped (unknown field id or empty value), "
+        "%d field(s) listed as not found, %d field(s) re-asked alone, %d draft insight(s) to save",
+        document_id, stats["returned"], stats["dropped"], stats["not_found"],
+        stats["second_pass"], len(merged),
+    )
     _save_insights(pool, document_id, merged)
-    _set_document_state(pool, document_id, "ready", "")
-    logger.info("Document %s: %d draft insight(s) saved", document_id, len(merged))
+    if merged:
+        _set_document_state(pool, document_id, "ready", "")
+    else:
+        _set_document_state(pool, document_id, "ready", NO_ANSWERS_MESSAGE)
 
 
 def split_text(text: str) -> list[str]:
@@ -119,25 +143,49 @@ def _field_list(fields) -> str:
     return "\n".join(f"{f['id']} | {f['label']} | {f['description']}" for f in fields)
 
 
-def _read_with_model(text: str, fields) -> dict[str, InsightItem]:
-    """Returns the best insight per field id, keeping only ids that belong to this category."""
+def _read_with_model(text: str, fields) -> tuple[dict[str, InsightItem], dict[str, int]]:
+    """Returns the best insight per field id (ids from this category only) and counts for the log.
+
+    Pass 1 asks about all fields together. Pass 2 asks about each field that pass 1 neither
+    answered nor listed as not found, because the model sometimes skips fields in a long list.
+    """
     valid_ids = {f["id"] for f in fields}
     chunks = split_text(text)
     if len(chunks) > 3:
-        logger.info("Long document: reading in %d chunks", len(chunks))
+        logger.warning("Long document: reading in %d chunks", len(chunks))
 
+    stats = {"returned": 0, "dropped": 0, "not_found": 0, "second_pass": 0}
     best: dict[str, InsightItem] = {}
-    for chunk in chunks:
-        user_message = f"Fields:\n{_field_list(fields)}\n\nDocument:\n{chunk}"
-        result = call_llm(SYSTEM_PROMPT, user_message, InsightOutput)
-        for item in result.output.insights:
+    not_found: set[str] = set()
+
+    def absorb(output: InsightOutput) -> None:
+        stats["returned"] += len(output.insights)
+        not_found.update(output.notFound)
+        for item in output.insights:
             if item.fieldId not in valid_ids or not item.value.strip():
+                stats["dropped"] += 1
                 continue
             item.confidence = min(max(item.confidence, 0.0), 1.0)
             current = best.get(item.fieldId)
             if current is None or item.confidence > current.confidence:
                 best[item.fieldId] = item
-    return best
+
+    for chunk in chunks:
+        user_message = f"Fields:\n{_field_list(fields)}\n\nDocument:\n{chunk}"
+        absorb(call_llm(SYSTEM_PROMPT, user_message, InsightOutput).output)
+
+    missing = fields_needing_second_pass(fields, set(best), not_found)
+    stats["second_pass"] = len(missing)
+    for field in missing:
+        for chunk in chunks:
+            user_message = f"Fields:\n{_field_list([field])}\n\nDocument:\n{chunk}"
+            absorb(call_llm(SYSTEM_PROMPT, user_message, InsightOutput).output)
+
+    stats["not_found"] = len(not_found)
+    for item in best.values():
+        if is_placeholder(item.value) or is_placeholder(item.evidence):
+            item.value = REVIEW_PREFIX + item.value
+    return best, stats
 
 
 def _save_insights(pool, document_id: str, merged: dict[str, InsightItem]) -> None:

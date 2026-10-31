@@ -35,7 +35,7 @@ from psycopg import Connection
 from app.db import get_conn
 from app.security import current_user, require_role
 from app.services.document_text import max_bytes_for
-from app.services.guideline_insights import process_document
+from app.services.guideline_insights import is_placeholder, process_document
 from app.services.intake import load_gap_report
 
 router = APIRouter(prefix="/api/intake", tags=["intake-documents"])
@@ -306,6 +306,14 @@ def approve_insight(
     user: dict = Depends(require_role(*EDITOR_ROLES)),
     conn: Connection = Depends(get_conn),
 ) -> dict:
+    current = conn.execute("SELECT value, evidence FROM guideline_insights WHERE id = %s", (insight_id,)).fetchone()
+    if current is None:
+        raise HTTPException(status_code=404, detail="Insight not found")
+    if is_placeholder(current["value"]) or is_placeholder(current["evidence"]):
+        raise HTTPException(
+            status_code=409,
+            detail="This insight quotes a placeholder. Replace the placeholder in the source document, upload it again, then approve.",
+        )
     return _review_insight(conn, insight_id, "approved", user)
 
 
