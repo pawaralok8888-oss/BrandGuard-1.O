@@ -2,12 +2,13 @@
 
 Each intake field names a coverage check. The check counts the real data that answers the
 field (approved assets, products, active facts, active guidelines, rules). A person can also
-mark a field provided or not applicable, with a note.
+mark a field provided or not applicable, with a note. An insight that a manager approved from an
+uploaded document also covers its field.
 
 Status of a field, in this order:
   not_applicable  a person marked it not applicable
   provided        a person marked it provided (the only way to answer a manual field)
-  covered         the coverage check found data
+  covered         the coverage check found data, or a manager approved an insight for the field
   gap             none of the above
 
 A required field with status gap is a required gap. Optional gaps are reported, not counted as failures.
@@ -51,25 +52,50 @@ COVERAGE_SQL: dict[str, str] = {
     ),
 }
 
+# Approved insights per field, ignoring deleted documents.
+INSIGHT_COUNT_SQL = """
+    SELECT gi.field_id, COUNT(*) AS n
+    FROM guideline_insights gi
+    JOIN intake_documents d ON d.id = gi.document_id
+    WHERE gi.status = 'approved' AND d.deleted_at IS NULL
+    GROUP BY gi.field_id
+"""
 
-def field_status(coverage_check: str, data_found: bool, response_status: str | None) -> str:
+
+def field_status(
+    coverage_check: str,
+    data_found: bool,
+    response_status: str | None,
+    insight_found: bool = False,
+) -> str:
     if response_status == "not_applicable":
         return "not_applicable"
     if response_status == "provided":
         return "provided"
-    if coverage_check != MANUAL and data_found:
+    if insight_found or (coverage_check != MANUAL and data_found):
         return "covered"
     return "gap"
 
 
-def build_gap_report(rows: list[dict], counts: dict[str, int]) -> dict:
-    """Pure: field rows (from the join in load_gap_report) and coverage counts -> report."""
+def build_gap_report(
+    rows: list[dict],
+    counts: dict[str, int],
+    insight_counts: dict[str, int] | None = None,
+) -> dict:
+    """Pure: field rows, coverage counts and approved insight counts -> report."""
+    insight_counts = insight_counts or {}
     categories: dict[str, dict] = {}
     summary = {"total": 0, "covered": 0, "provided": 0, "notApplicable": 0, "gaps": 0, "requiredGaps": 0}
 
     for row in rows:
         data_found = counts.get(row["coverage_check"], 0) > 0
-        status = field_status(row["coverage_check"], data_found, row["response_status"])
+        approved_insights = insight_counts.get(row["id"], 0)
+        status = field_status(
+            row["coverage_check"],
+            data_found,
+            row["response_status"],
+            insight_found=approved_insights > 0,
+        )
 
         category = categories.setdefault(row["category_id"], {
             "id": row["category_id"],
@@ -84,6 +110,7 @@ def build_gap_report(rows: list[dict], counts: dict[str, int]) -> dict:
             "coverageCheck": row["coverage_check"],
             "status": status,
             "note": row["response_note"] or "",
+            "approvedInsightCount": approved_insights,
         })
 
         summary["total"] += 1
@@ -117,4 +144,7 @@ def load_gap_report(conn: Connection) -> dict:
     counts: dict[str, int] = {}
     for check in {r["coverage_check"] for r in rows if r["coverage_check"] != MANUAL}:
         counts[check] = int(conn.execute(COVERAGE_SQL[check]).fetchone()["n"])
-    return build_gap_report(rows, counts)
+    insight_counts = {
+        r["field_id"]: int(r["n"]) for r in conn.execute(INSIGHT_COUNT_SQL).fetchall()
+    }
+    return build_gap_report(rows, counts, insight_counts)
