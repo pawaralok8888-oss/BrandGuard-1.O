@@ -12,6 +12,7 @@ from psycopg import Connection
 from psycopg.types.json import Jsonb
 
 from app.ai.prompt import PROMPT_VERSION
+from app.services.image_checks import run_content_image_checks
 from app.config import get_settings
 from app.pipeline.redact import load_confidential_terms
 from app.pipeline.rules import run_rules
@@ -38,8 +39,52 @@ def _new_id(prefix: str) -> str:
     return f"{prefix}_{uuid4().hex[:12]}"
 
 
+BRAND_RULE_SQL = """
+    SELECT id, kind, pattern, replacement, channel,
+           NULL::text AS guideline_id, title, reason AS text, severity, 1 AS version
+    FROM brand_rules
+    WHERE status = 'approved'
+      AND (channel IS NULL OR channel = %s)
+    ORDER BY id
+"""
+
+
+def _rule_from_row(row: dict, channel: str) -> dict | None:
+    """One rule dict for run_rules, from a rule_patterns or brand_rules row. None if the kind is unknown."""
+    kind = KIND_MAP.get(row["kind"])
+    if kind is None:
+        return None
+    severity = row["severity"] if row["severity"] in SEVERITY_OK else "warning"
+    is_security = kind == "confidential"
+    rule = {
+        "id": row["id"],
+        "type": kind,
+        "severity_default": "critical" if is_security else severity,
+        "title": row["title"] or "Brand rule match",
+        "reason": row["text"] or "Matched a configured brand rule.",
+        "source_id": row["guideline_id"] or row["id"],
+        "source_version": row["version"] or 1,
+        "suggested_fix": row["replacement"] or "",
+        "replacement": row["replacement"] or "",
+        "finding_type": "security" if is_security else "rule",
+        "suggestion_kind": "Suggested disclaimer" if kind == "required_text" else "Terminology change",
+    }
+    if kind == "regex":
+        rule["regex"] = row["pattern"]
+    elif kind == "required_text":
+        rule["required_text"] = row["pattern"]
+        rule["required_channels"] = [row["channel"]] if row["channel"] else []
+        rule["_channel"] = channel
+    elif kind == "name_variant":
+        rule["pattern"] = row["pattern"]
+    else:
+        rule["patterns"] = [row["pattern"]]
+    return rule
+
+
 def load_active_rules(conn: Connection, channel: str) -> list[dict]:
-    """Rule dicts in the shape run_rules expects, filtered by channel in SQL."""
+    """Rule dicts for run_rules: active rule_patterns (from seeds and approved guideline rules)
+    followed by approved brand_rules. Both are filtered by channel in SQL."""
     rows = conn.execute(
         """
         SELECT rp.id, rp.kind, rp.pattern, rp.replacement, rp.channel,
@@ -52,38 +97,10 @@ def load_active_rules(conn: Connection, channel: str) -> list[dict]:
         """,
         (channel,),
     ).fetchall()
+    brand_rows = conn.execute(BRAND_RULE_SQL, (channel,)).fetchall()
 
-    rules: list[dict] = []
-    for row in rows:
-        kind = KIND_MAP.get(row["kind"])
-        if kind is None:
-            continue
-        severity = row["severity"] if row["severity"] in SEVERITY_OK else "warning"
-        is_security = kind == "confidential"
-        rule = {
-            "id": row["id"],
-            "type": kind,
-            "severity_default": "critical" if is_security else severity,
-            "title": row["title"] or "Brand rule match",
-            "reason": row["text"] or "Matched a configured brand rule.",
-            "source_id": row["guideline_id"] or row["id"],
-            "source_version": row["version"] or 1,
-            "suggested_fix": row["replacement"] or "",
-            "replacement": row["replacement"] or "",
-            "finding_type": "security" if is_security else "rule",
-            "suggestion_kind": "Suggested disclaimer" if kind == "required_text" else "Terminology change",
-        }
-        if kind == "regex":
-            rule["regex"] = row["pattern"]
-        elif kind == "required_text":
-            rule["required_text"] = row["pattern"]
-            rule["required_channels"] = [row["channel"]] if row["channel"] else []
-            rule["_channel"] = channel
-        elif kind == "name_variant":
-            rule["pattern"] = row["pattern"]
-        else:
-            rule["patterns"] = [row["pattern"]]
-        rules.append(rule)
+    rules = [r for r in (_rule_from_row(row, channel) for row in rows) if r is not None]
+    rules += [r for r in (_rule_from_row(row, channel) for row in brand_rows) if r is not None]
     return rules
 
 
@@ -118,7 +135,7 @@ def run_rule_check(conn: Connection, content_id: str, actor: dict | None) -> dic
     the fact-change flow); the revision is then recorded as "AI Check" with no user id.
     """
     content = conn.execute(
-        "SELECT id, channel, body_text, status FROM content WHERE id = %s",
+        "SELECT id, channel, body_text, status, image_url, alt_text, image_is_logo FROM content WHERE id = %s",
         (content_id,),
     ).fetchone()
     if content is None:
@@ -142,7 +159,12 @@ def run_rule_check(conn: Connection, content_id: str, actor: dict | None) -> dic
         ai = AIStage(status="fallback", error="Confidential terms could not be loaded; AI skipped")
     else:
         ai = run_ai_stage(conn, body_text, channel, rule_spans, confidential_terms)
-    all_findings = rule_findings + ai.findings
+    # Stage 3: image checks on the attached image (no AI). Empty when there is no image.
+    image_findings = run_content_image_checks(
+        content_id, content.get("image_url"), content.get("alt_text"),
+        is_logo=bool(content.get("image_is_logo")),
+    )
+    all_findings = rule_findings + ai.findings + image_findings
 
     check_run_id = _new_id("chk")
     with conn.transaction():
@@ -174,6 +196,7 @@ def run_rule_check(conn: Connection, content_id: str, actor: dict | None) -> dic
                     "promptVersion": PROMPT_VERSION,
                     "dropped": ai.dropped,
                     "redactedMatches": ai.redacted,
+                    "imageFindings": len(image_findings),
                 }),
             ),
         )

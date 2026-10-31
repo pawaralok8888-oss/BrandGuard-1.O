@@ -1,10 +1,15 @@
 
+import { SHOW_DEV_TOOLS } from "@/lib/devTools";
+import type { UserRole } from "@/types";
+import { DraftRulesPanel, type UploadSummary } from "@/components/guidelines/DraftRulesPanel";
 import { useEffect, useRef, useState } from "react";
 import {
   getGuidelines,
   getGuidelineVersions,
   getGlossary,
+  getGuidelineCategories,
   uploadGuidelinesFile,
+  type GuidelineCategoryName,
   type GuidelineItem,
   type GuidelineVersionItem,
   type GlossaryItem,
@@ -36,7 +41,9 @@ import {
   XCircle,
 } from "lucide-react";
 
-type Tab = "Rules" | "Glossary" | "Brand Assets" | "Upload";
+type Tab = "Rules" | "Drafts" | "Glossary" | "Brand Assets" | "Upload";
+
+const UPLOAD_LIMIT_MB = { text: 1, binary: 10 } as const;
 type Severity = "Critical" | "High" | "Medium" | "Low";
 type Rule = {
   id: string;
@@ -150,7 +157,9 @@ function SkeletonRows() {
   );
 }
 
-export default function BrandGuidelinesPage() {
+export default function BrandGuidelinesPage({ role }: { role: UserRole }) {
+  // Uploading guidelines and reviewing their draft rules are for managers and admins.
+  const canEdit = role === "manager" || role === "admin";
   const [activeTab, setActiveTab] = useState<Tab>("Rules");
   const [rules, setRules] = useState<Rule[]>(initialRules);
   const [terms, setTerms] = useState<Term[]>(initialTerms);
@@ -172,14 +181,10 @@ export default function BrandGuidelinesPage() {
   const [error, setError] = useState(false);
   const [emptyMode, setEmptyMode] = useState(false);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
-  const [parsing, setParsing] = useState(false);
-  const [parseComplete, setParseComplete] = useState(false);
-  const [parsedRules, setParsedRules] = useState([
-    { id: "P-001", text: "Use sentence case for headings and button labels.", selected: true, severity: "Low" as Severity },
-    { id: "P-002", text: "Avoid unsupported or guaranteed performance claims.", selected: true, severity: "Critical" as Severity },
-    { id: "P-003", text: "Use a helpful and confident tone of voice.", selected: true, severity: "Medium" as Severity },
-    { id: "P-004", text: "Use approved brand colours for primary buttons.", selected: false, severity: "High" as Severity },
-  ]);
+  const [uploading, setUploading] = useState(false);
+  const [uploadCategory, setUploadCategory] = useState<GuidelineCategoryName>("");
+  const [categories, setCategories] = useState<string[]>([]);
+  const [uploadSummary, setUploadSummary] = useState<UploadSummary | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [uploadError, setUploadError] = useState("");
@@ -222,6 +227,17 @@ export default function BrandGuidelinesPage() {
   useEffect(() => {
     void loadGuidelinesData();
   }, []);
+
+  // Load the category list from the server, and default the upload to the first one.
+  useEffect(() => {
+    if (!canEdit) return;
+    getGuidelineCategories()
+      .then((list) => {
+        setCategories(list);
+        setUploadCategory((current) => current || list[0] || "");
+      })
+      .catch(() => setToast("Could not load guideline categories."));
+  }, [canEdit]);
 
   useEffect(() => {
     if (!toast) return;
@@ -364,60 +380,51 @@ export default function BrandGuidelinesPage() {
 
   async function startUpload(file?: File) {
     if (!file) return;
-    const validFile = /\.(txt|md)$/i.test(file.name);
-    if (!validFile) {
-      setToast("Please choose a .txt or .md file.");
+    if (!uploadCategory) {
+      setToast("Categories are still loading. Try again in a moment.");
+      return;
+    }
+    const extension = file.name.split(".").pop()?.toLowerCase() ?? "";
+    if (!["txt", "md", "pdf", "docx"].includes(extension)) {
+      setToast("Please choose a .txt, .md, .pdf or .docx file.");
+      return;
+    }
+    const limitMb = ["pdf", "docx"].includes(extension) ? UPLOAD_LIMIT_MB.binary : UPLOAD_LIMIT_MB.text;
+    if (file.size > limitMb * 1024 * 1024) {
+      setToast(`That file is larger than ${limitMb} MB.`);
       return;
     }
     setUploadFile(file);
     setUploadError("");
-    setParseComplete(false);
-    setParsing(true);
+    setUploadSummary(null);
+    setUploading(true);
     try {
-      await uploadGuidelinesFile(file);
-      setParsing(false);
-      setParseComplete(true);
-      setToast("Guideline uploaded and saved to knowledge base successfully.");
+      const saved = await uploadGuidelinesFile(file, uploadCategory);
+      setUploadSummary({
+        guideline: saved.shortName || saved.title,
+        ruleCandidates: saved.ruleCandidates,
+        unparsedLines: saved.unparsedLines,
+      });
+      setUploadFile(null);
+      setToast(
+        saved.ruleCandidates > 0
+          ? `Guideline saved. ${saved.ruleCandidates} draft ${saved.ruleCandidates === 1 ? "rule" : "rules"} ready to review.`
+          : "Guideline saved. No rules could be drafted from it; see the lines listed below.",
+      );
       await loadGuidelinesData();
-      window.setTimeout(() => {
-        setActiveTab("Rules");
-        setUploadFile(null);
-        setParseComplete(false);
-      }, 1200);
-    } catch (err: any) {
-      setParsing(false);
-      const msg = err?.message || "Upload failed. Please check server logs.";
-      setUploadError(msg);
-      setToast(msg);
+      setActiveTab("Drafts");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Upload failed. Please check the server logs.";
+      setUploadError(message);
+      setToast(message);
+    } finally {
+      setUploading(false);
     }
   }
 
-  function addSelectedParsedRules() {
-    const selected = parsedRules.filter((rule) => rule.selected);
-    if (!selected.length) {
-      setToast("Select at least one rule to add.");
-      return;
-    }
-    const newItems: Rule[] = selected.map((item, index) => ({
-      id: `R-${String(rules.length + index + 1).padStart(3, "0")}`,
-      rule: item.text,
-      severity: item.severity,
-      category: "Tone of Voice",
-      version: "v1.0",
-      rejectionRate: 0,
-      updated: "Oct 25, 2026",
-      history: [
-        { version: "v1.0", date: "Oct 25, 2026", change: "Imported from guideline draft.", author: "You" },
-      ],
-    }));
-    setRules((current) => [...newItems, ...current]);
-    setActiveTab("Rules");
-    setUploadFile(null);
-    setParseComplete(false);
-    setToast(`${newItems.length} rules added to your guidelines.`);
-  }
-
-  const tabs: Tab[] = ["Rules", "Glossary", "Brand Assets", "Upload"];
+  const tabs: Tab[] = canEdit
+    ? ["Rules", "Drafts", "Glossary", "Brand Assets", "Upload"]
+    : ["Rules", "Glossary", "Brand Assets"];
 
   return (
     <div className="min-h-screen bg-[#F6F8FC] text-[#14213D]">
@@ -439,17 +446,18 @@ export default function BrandGuidelinesPage() {
               <CheckCircle2 size={13} />
               Guidelines active
             </span>
-            <button
-              onClick={() => {
-                setActiveTab("Upload");
-                setUploadFile(null);
-                setParseComplete(false);
-              }}
-              className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#2F5BEA] px-3 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2"
-            >
-              <Upload size={15} />
-              Upload guidelines
-            </button>
+            {canEdit && (
+              <button
+                onClick={() => {
+                  setActiveTab("Upload");
+                  setUploadFile(null);
+                }}
+                className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#2F5BEA] px-3 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2"
+              >
+                <Upload size={15} />
+                Upload guidelines
+              </button>
+            )}
           </div>
         </header>
 
@@ -710,12 +718,14 @@ export default function BrandGuidelinesPage() {
                       </div>
                       <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 px-4 py-3">
                         <p className="text-[11px] text-slate-500">Showing {filteredRules.length} of {rules.length} rules</p>
-                        <button
-                          onClick={() => setError(true)}
-                          className="text-[10px] text-slate-400 underline decoration-dotted underline-offset-2 hover:text-slate-600"
-                        >
-                          Simulate load error
-                        </button>
+                        {SHOW_DEV_TOOLS && (
+                          <button
+                            onClick={() => setError(true)}
+                            className="text-[10px] text-slate-400 underline decoration-dotted underline-offset-2 hover:text-slate-600"
+                          >
+                            Simulate load error
+                          </button>
+                        )}
                       </div>
                     </>
                   )}
@@ -723,6 +733,9 @@ export default function BrandGuidelinesPage() {
               </section>
             )}
 
+            {activeTab === "Drafts" && (
+              <DraftRulesPanel summary={uploadSummary} onChanged={() => void loadGuidelinesData()} />
+            )}
             {activeTab === "Glossary" && (
               <section className="overflow-hidden rounded-xl border border-[#E3E8F2] bg-white shadow-sm">
                 <div className="flex flex-col gap-3 border-b border-slate-100 p-4 sm:flex-row sm:items-center sm:justify-between">
@@ -802,9 +815,11 @@ export default function BrandGuidelinesPage() {
                 </div>
                 <div className="flex items-center justify-between border-t border-slate-100 px-4 py-3">
                   <span className="text-[11px] text-slate-500">{terms.length} approved terms</span>
-                  <button onClick={() => setError(true)} className="text-[10px] text-slate-400 underline decoration-dotted underline-offset-2 hover:text-slate-600">
-                    Simulate load error
-                  </button>
+                  {SHOW_DEV_TOOLS && (
+                    <button onClick={() => setError(true)} className="text-[10px] text-slate-400 underline decoration-dotted underline-offset-2 hover:text-slate-600">
+                      Simulate load error
+                    </button>
+                  )}
                 </div>
               </section>
             )}
@@ -949,168 +964,97 @@ export default function BrandGuidelinesPage() {
                   )}
                 </section>
                 <div className="text-right">
-                  <button onClick={() => setError(true)} className="text-[10px] text-slate-400 underline decoration-dotted underline-offset-2 hover:text-slate-600">
-                    Simulate load error
-                  </button>
+                  {SHOW_DEV_TOOLS && (
+                    <button onClick={() => setError(true)} className="text-[10px] text-slate-400 underline decoration-dotted underline-offset-2 hover:text-slate-600">
+                      Simulate load error
+                    </button>
+                  )}
                 </div>
               </div>
             )}
 
             {activeTab === "Upload" && (
-              <section className="mx-auto max-w-4xl overflow-hidden rounded-xl border border-[#E3E8F2] bg-white shadow-sm">
-                <div className="border-b border-slate-100 p-4">
+              <section className="space-y-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                <div>
                   <h2 className="text-sm font-semibold">Upload brand guidelines</h2>
                   <p className="mt-1 text-[11px] text-slate-500">
-                    Turn your existing guideline document into editable, reviewable rules.
+                    Plain text, Markdown, a PDF with a text layer, or a Word (.docx) file. Scanned PDFs and
+                    password-protected PDFs are not supported.
                   </p>
                 </div>
-                <div className="space-y-5 p-4 sm:p-6">
-                  {!uploadFile ? (
-                    <button
-                      onClick={() => fileInputRef.current?.click()}
-                      onDragOver={(event) => event.preventDefault()}
-                      onDrop={(event) => {
-                        event.preventDefault();
-                        startUpload(event.dataTransfer.files?.[0]);
-                      }}
-                      className="flex min-h-[220px] w-full flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-300 bg-slate-50/60 px-5 py-8 text-center transition hover:border-blue-400 hover:bg-blue-50/30 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2"
-                    >
-                      <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50 text-[#2F5BEA]">
-                        <FileUp size={24} />
-                      </div>
-                      <h3 className="text-sm font-semibold text-slate-800">Upload your brand guideline text or markdown file</h3>
-                      <p className="mt-1.5 text-xs text-slate-500">Drag and drop your file here, or click to browse.</p>
-                      <p className="mt-3 text-[10px] text-slate-400">.txt, .md · Plain text or Markdown guidelines</p>
-                      <span className="mt-4 inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700">
-                        <Upload size={14} />
-                        Choose file
-                      </span>
-                    </button>
-                  ) : (
-                    <div className="flex items-center gap-3 rounded-xl border border-slate-200 p-3">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-[#2F5BEA]">
-                        <FileText size={20} />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-xs font-semibold text-slate-800">{uploadFile.name}</p>
-                        <p className="mt-1 text-[10px] text-slate-500">{(uploadFile.size / 1024 / 1024).toFixed(2)} MB · Selected for parsing</p>
-                      </div>
-                      <button
-                        onClick={() => {
-                          setUploadFile(null);
-                          setParsing(false);
-                          setParseComplete(false);
-                        }}
-                        aria-label="Remove uploaded file"
-                        className="rounded-md p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400"
-                      >
-                        <X size={16} />
-                      </button>
-                    </div>
-                  )}
+
+                <label className="block text-[11px] font-medium text-slate-600">
+                  Guideline category
+                  <select
+                    value={uploadCategory}
+                    onChange={(event) => setUploadCategory(event.target.value)}
+                    disabled={uploading}
+                    className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs"
+                  >
+                    {categories.map((category) => (
+                      <option key={category} value={category}>{category}</option>
+                    ))}
+                  </select>
+                </label>
+
+                <div
+                  onDragOver={(event) => event.preventDefault()}
+                  onDrop={(event) => {
+                    event.preventDefault();
+                    void startUpload(event.dataTransfer.files?.[0]);
+                  }}
+                  className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-200 p-8 text-center"
+                >
                   <input
                     ref={fileInputRef}
                     type="file"
-                    accept=".txt,.md"
-                    className="hidden"
-                    onChange={(event) => startUpload(event.target.files?.[0])}
+                    accept=".txt,.md,.pdf,.docx"
+                    aria-label="Choose a guideline file"
+                    className="sr-only"
+                    onChange={(event) => void startUpload(event.target.files?.[0])}
                   />
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploading}
+                    className="focus-ring inline-flex h-9 items-center gap-2 rounded-lg bg-[#2F5BEA] px-3 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    <Upload size={14} aria-hidden="true" />
+                    Choose a file
+                  </button>
+                  <p className="mt-3 text-[10px] text-slate-400">
+                    .txt, .md, .pdf, .docx · up to {UPLOAD_LIMIT_MB.text} MB for text, {UPLOAD_LIMIT_MB.binary} MB for PDF and Word
+                  </p>
+                </div>
 
-                  {uploadError && (
-                    <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-800 flex items-center justify-between">
-                      <span>{uploadError}</span>
-                      <button onClick={() => setUploadError("")} className="font-semibold underline ml-2">Dismiss</button>
-                    </div>
-                  )}
-                  {uploadFile && (
-                    <div className="rounded-xl border border-slate-200 p-4">
-                      <div className="mb-4 flex items-center gap-3">
-                        <div className={`flex h-8 w-8 items-center justify-center rounded-full ${parseComplete ? "bg-emerald-50 text-emerald-700" : "bg-blue-50 text-[#2F5BEA]"}`}>
-                          {parseComplete ? <CheckCircle2 size={17} /> : parsing ? <Loader2 size={17} className="animate-spin" /> : <FileText size={17} />}
-                        </div>
-                        <div className="flex-1">
-                          <p className="text-xs font-semibold text-slate-800">
-                            {parsing ? "Parsing your guidelines..." : parseComplete ? "Guidelines parsed" : "Ready to parse"}
-                          </p>
-                          <p className="mt-0.5 text-[11px] text-slate-500">
-                            {parsing ? "Identifying rules, terminology, and brand requirements." : parseComplete ? "Review the extracted draft rules below before adding them." : "Select the file to begin."}
-                          </p>
-                        </div>
-                        {parseComplete && <span className="rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-medium text-emerald-700">Complete</span>}
-                      </div>
-                      <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
-                        <div className={`h-full rounded-full bg-[#2F5BEA] transition-all duration-500 ${parseComplete ? "w-full" : parsing ? "w-2/3" : "w-0"}`} />
-                      </div>
-                    </div>
-                  )}
+                {uploadFile && (
+                  <p className="flex items-center gap-2 text-xs text-slate-700">
+                    {uploading && <Loader2 size={14} className="animate-spin" aria-hidden="true" />}
+                    <span className="truncate font-medium">{uploadFile.name}</span>
+                    <span className="text-slate-500">{uploading ? "Saving and reading the file…" : ""}</span>
+                  </p>
+                )}
 
-                  {parseComplete && (
-                    <div className="overflow-hidden rounded-xl border border-slate-200">
-                      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 p-3">
-                        <div>
-                          <h3 className="text-xs font-semibold text-slate-800">Parsed draft rules</h3>
-                          <p className="mt-1 text-[10px] text-slate-500">Review each rule and severity before adding it to your library.</p>
-                        </div>
-                        <button
-                          onClick={() => setParsedRules((current) => current.map((rule) => ({ ...rule, selected: true })))}
-                          className="text-[11px] font-medium text-[#2F5BEA] hover:underline"
-                        >
-                          Select all
-                        </button>
-                      </div>
-                      <div className="divide-y divide-slate-100">
-                        {parsedRules.map((rule) => (
-                          <div key={rule.id} className="flex flex-col gap-3 p-3 sm:flex-row sm:items-start">
-                            <label className="flex min-w-0 flex-1 cursor-pointer items-start gap-2.5">
-                              <input
-                                type="checkbox"
-                                checked={rule.selected}
-                                onChange={(event) => setParsedRules((current) => current.map((item) => item.id === rule.id ? { ...item, selected: event.target.checked } : item))}
-                                className="mt-0.5 h-4 w-4 rounded border-slate-300 text-[#2F5BEA] focus:ring-blue-400"
-                              />
-                              <span className="min-w-0">
-                                <span className="mb-1 block font-mono text-[10px] text-slate-400">{rule.id}</span>
-                                <span className="block text-xs leading-5 text-slate-700">{rule.text}</span>
-                              </span>
-                            </label>
-                            <div className="sm:w-36">
-                              <label className="mb-1 block text-[10px] font-medium text-slate-500">Severity</label>
-                              <select
-                                value={rule.severity}
-                                onChange={(event) => setParsedRules((current) => current.map((item) => item.id === rule.id ? { ...item, severity: event.target.value as Severity } : item))}
-                                className="h-8 w-full rounded-lg border border-slate-200 bg-white px-2 text-[11px] outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
-                              >
-                                {(["Critical", "High", "Medium", "Low"] as Severity[]).map((severity) => <option key={severity}>{severity}</option>)}
-                              </select>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 bg-slate-50/70 p-3">
-                        <span className="text-[11px] text-slate-500">{parsedRules.filter((rule) => rule.selected).length} of {parsedRules.length} selected</span>
-                        <button
-                          onClick={addSelectedParsedRules}
-                          disabled={!parsedRules.some((rule) => rule.selected)}
-                          className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#2F5BEA] px-3 text-xs font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2"
-                        >
-                          <Check size={14} />
-                          Add selected rules
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                  <div className="flex items-start gap-2 rounded-lg bg-blue-50/70 p-3">
-                    <Info size={15} className="mt-0.5 shrink-0 text-blue-600" />
-                    <p className="text-[11px] leading-5 text-blue-900">
-                      Imported rules remain editable drafts until reviewed. Always verify extracted wording before applying it to content reviews.
-                    </p>
+                {uploadError && (
+                  <div role="alert" className="flex items-start justify-between gap-2 rounded-lg border border-red-100 bg-red-50 p-3 text-[11px] text-red-700">
+                    <span>{uploadError}</span>
+                    <button onClick={() => setUploadError("")} className="font-semibold underline">Dismiss</button>
                   </div>
+                )}
+
+                <div className="flex items-start gap-2 rounded-lg bg-blue-50/70 p-3">
+                  <Info size={15} className="mt-0.5 shrink-0 text-blue-600" />
+                  <p className="text-[11px] leading-5 text-blue-900">
+                    After upload, the rules found in the file appear in the Drafts tab. They stay inactive until a manager approves them.
+                  </p>
+                </div>
+                {SHOW_DEV_TOOLS && (
                   <div className="text-right">
                     <button onClick={() => setError(true)} className="text-[10px] text-slate-400 underline decoration-dotted underline-offset-2 hover:text-slate-600">
                       Simulate load error
                     </button>
                   </div>
-                </div>
+                )}
               </section>
             )}
           </>
@@ -1351,12 +1295,14 @@ export default function BrandGuidelinesPage() {
 
       {/* Small development controls */}
       <div className="mx-auto max-w-[1600px] px-5 pb-4 text-right lg:px-7">
-        <button
-          onClick={() => setEmptyMode((current) => !current)}
-          className="text-[10px] text-slate-400 underline decoration-dotted underline-offset-2 hover:text-slate-600"
-        >
-          {emptyMode ? "Exit empty state" : "Preview empty states"}
-        </button>
+        {SHOW_DEV_TOOLS && (
+          <button
+            onClick={() => setEmptyMode((current) => !current)}
+            className="text-[10px] text-slate-400 underline decoration-dotted underline-offset-2 hover:text-slate-600"
+          >
+            {emptyMode ? "Exit empty state" : "Preview empty states"}
+          </button>
+        )}
       </div>
     </div>
   );

@@ -63,8 +63,7 @@ $seedFiles = @(
     "data/seeds/02_demo_people_products.sql",
     "data/seeds/03_demo_facts_guidelines.sql",
     "data/seeds/04_living.sql",
-    "data/seeds/04b_demo_posts.sql",
-    "data/seeds/05_phase1_inputs.sql"
+    "data/seeds/04b_demo_posts.sql"
 )
 
 foreach ($file in $seedFiles) {

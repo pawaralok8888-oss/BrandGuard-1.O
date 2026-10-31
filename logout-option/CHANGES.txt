@@ -1,0 +1,16 @@
+Add a Log out option to the top bar.
+
+Replace this file in your project:
+  frontend/src/components/shell/TopBar.tsx
+
+What changes:
+- Clicking the name and chevron in the top right now opens a small menu.
+- The menu has a red "Log out" item. It clears the login token and goes to /login.
+- If VITE_SHOW_DEMO_SWITCHER=true, the demo user list still appears in the same menu above Log out.
+
+After copying the file, the frontend reloads automatically. Check:
+1. Log in as any demo user.
+2. Click the name in the top right, then click Log out.
+3. You should land on the login page, and the token is cleared.
+
+TypeScript check (tsc --noEmit): 0 errors.

@@ -8,7 +8,7 @@ from typing import AsyncIterator
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.config import get_settings
+from app.config import find_origin_problems, get_settings
 from app.db import create_pool
 import app.routes as routes_package
 
@@ -31,6 +31,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 
 settings = get_settings()
+for _problem in find_origin_problems(settings.cors_origins):
+    logger.warning("CORS configuration: %s", _problem)
 
 app = FastAPI(
     title="BrandGuard API",
@@ -74,18 +76,28 @@ register_routers()
 
 
 @app.get("/api/health")
-def health_check() -> dict[str, str]:
-    """Return application health and a best-effort database health check."""
-    pool = getattr(app.state, "db_pool", None)
+def health_check() -> dict[str, object]:
+    """Return application health, the database check, and whether optional services are set up.
 
+    Only yes/no flags are returned, never the values of keys or tokens.
+    """
+    current = get_settings()
+    services = {
+        # Without a Gemini key the AI claim check is skipped and only the rules run.
+        "ai": "configured" if current.gemini_api_key else "not_configured",
+        "slack": "configured" if current.slack_bot_token and current.slack_channel_id else "not_configured",
+        "email": "configured" if current.smtp_host and current.smtp_from else "not_configured",
+    }
+
+    pool = getattr(app.state, "db_pool", None)
     if pool is None:
-        return {"status": "ok", "database": "down"}
+        return {"status": "ok", "database": "down", "services": services}
 
     try:
         with pool.connection() as connection:
             connection.execute("SELECT 1").fetchone()
 
-        return {"status": "ok", "database": "ok"}
+        return {"status": "ok", "database": "ok", "services": services}
     except Exception:
         logger.exception("Database health check failed")
-        return {"status": "ok", "database": "down"}
+        return {"status": "ok", "database": "down", "services": services}

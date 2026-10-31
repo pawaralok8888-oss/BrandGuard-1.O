@@ -1,0 +1,101 @@
+{
+  "purpose": "Measure whether an UPLOADED guideline file changes checks. Each post breaks one clause (or none) of the uploaded file named in expected.clause. Run the check after uploading the matching file as an Admin, then compare.",
+  "setup": [
+    "Upload greenglow_brand_guideline.md as category 'Claims & Legal', severity 'critical', channels Website, Instagram, Email, Ad.",
+    "Upload dot_and_key_brand_guideline.md as category 'Claims & Legal', severity 'critical', channels Website, Instagram, Email, Ad.",
+    "Create one draft per post with the matching channel, run the check, and record: rule-engine findings, AI findings, and the clause cited."
+  ],
+  "posts": [
+    {
+      "id": "gg-01", "brand": "GreenGlow", "channel": "Instagram",
+      "text": "GreenGlow Tea Tree Face Wash gives you 100% clear skin overnight. Guaranteed!",
+      "expected": [
+        {"clause": "GG-2 absolute and medical claims", "phrase": "100% clear skin", "severity": "critical"},
+        {"clause": "GG-2 absolute and medical claims", "phrase": "overnight", "severity": "critical"}
+      ]
+    },
+    {
+      "id": "gg-02", "brand": "GreenGlow", "channel": "Website",
+      "text": "Our best ever cleanser is the number one choice for customers with oily skin.",
+      "expected": [
+        {"clause": "GG-3 unsupported superlatives", "phrase": "best ever", "severity": "warning"},
+        {"clause": "GG-3 unsupported superlatives", "phrase": "number one", "severity": "warning"}
+      ]
+    },
+    {
+      "id": "gg-03", "brand": "GreenGlow", "channel": "Email",
+      "text": "Thanks for choosing us! Our clients love the new GreenGlow Moisturizer+. Results may vary.",
+      "expected": [
+        {"clause": "GG-4 customer terminology", "phrase": "clients", "severity": "info"},
+        {"clause": "GG-4 approved product names", "phrase": "GreenGlow Moisturizer+", "severity": "warning"}
+      ]
+    },
+    {
+      "id": "gg-04", "brand": "GreenGlow", "channel": "Instagram",
+      "text": "Our GreenGlow Cleansing Milk helps soothe sensitive skin after a long day.",
+      "expected": [
+        {"clause": "GG-5 required disclaimer", "phrase": "(missing) Results may vary. Individual skin types may respond differently.", "severity": "warning"}
+      ]
+    },
+    {
+      "id": "gg-05", "brand": "GreenGlow", "channel": "Ad",
+      "text": "Try Project Aurora, our secret new serum, coming to shelves in March. Results may vary. Individual skin types may respond differently.",
+      "expected": [
+        {"clause": "GG-7 confidential names", "phrase": "Project Aurora", "severity": "critical"}
+      ]
+    },
+    {
+      "id": "gg-06", "brand": "GreenGlow", "channel": "Website",
+      "text": "Summer offer: get 50% off GreenGlow Cleansing Milk with code SUMMER90, ends yesterday. Results may vary. Individual skin types may respond differently.",
+      "expected": [
+        {"clause": "GG-6 prices and offers", "phrase": "ends yesterday / expired offer", "severity": "critical"}
+      ]
+    },
+    {
+      "id": "gg-07", "brand": "GreenGlow", "channel": "Instagram",
+      "text": "Real customer Sara says her skin was cured in a week! Results may vary. Individual skin types may respond differently.",
+      "expected": [
+        {"clause": "GG-2 absolute and medical claims", "phrase": "cured", "severity": "critical"},
+        {"clause": "GG-8 testimonials", "phrase": "Real customer Sara", "severity": "warning"}
+      ]
+    },
+    {
+      "id": "gg-clean-01", "brand": "GreenGlow", "channel": "Website",
+      "text": "GreenGlow Tea Tree Face Wash is a gentle daily cleanser for customers with combination skin. Results may vary. Individual skin types may respond differently.",
+      "expected": []
+    },
+    {
+      "id": "dk-01", "brand": "Dot & Key", "channel": "Instagram",
+      "text": "Dot & Key sunscreen blocks 100% of UV rays, waterproof forever. Results may vary.",
+      "expected": [
+        {"clause": "DK-1 absolute protection claims", "phrase": "100% of UV rays", "severity": "critical"},
+        {"clause": "DK-1 absolute protection claims", "phrase": "waterproof forever", "severity": "critical"}
+      ]
+    },
+    {
+      "id": "dk-02", "brand": "Dot & Key", "channel": "Ad",
+      "text": "This sunscreen prevents skin cancer and treats sunburn in minutes.",
+      "expected": [
+        {"clause": "DK-1 medical claims", "phrase": "prevents skin cancer", "severity": "critical"},
+        {"clause": "DK-1 medical claims", "phrase": "treats sunburn", "severity": "critical"}
+      ]
+    },
+    {
+      "id": "dk-03", "brand": "Dot & Key", "channel": "Instagram",
+      "text": "Loved my Dot & Key sunscreen! Use it every 8 hours for best results. #ad",
+      "expected": [
+        {"clause": "DK-2 creator reapplication advice", "phrase": "every 8 hours", "severity": "warning", "note": "Must match approved usage fact, which is a placeholder in the mock; flag for review."}
+      ]
+    },
+    {
+      "id": "dk-clean-01", "brand": "Dot & Key", "channel": "Website",
+      "text": "Dot & Key Sunscreen helps protect skin from UV rays. Results may vary. Individual skin types may respond differently.",
+      "expected": []
+    }
+  ],
+  "scoring": {
+    "per_post": "Count expected findings matched (same clause and phrase, or same clause in the same post). Count extra findings as false positives. Clean posts should have zero findings.",
+    "record_for_each": ["rule_engine_found", "ai_found", "clause_cited", "missed", "false_positive", "source"],
+    "key_question": "Does changing the uploaded file change the result? Run once with the file uploaded and once with the upload removed. If the results are identical, the upload is not enforced by the hard checks."
+  }
+}

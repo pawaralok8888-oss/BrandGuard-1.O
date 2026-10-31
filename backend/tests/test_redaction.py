@@ -67,7 +67,7 @@ def _stub_stage(monkeypatch, captured: dict, evidence_text: str):
     from app.services import ai_check
 
     monkeypatch.setattr(ai_check, "get_settings", lambda: SimpleNamespace(brandguard_model="test-model"))
-    monkeypatch.setattr(ai_check, "get_evidence", lambda conn, channel: [
+    monkeypatch.setattr(ai_check, "get_evidence", lambda conn, channel, **kwargs: [
         {"source_id": "F-001", "version": 1, "text": evidence_text, "kind": "fact"},
         {"source_id": "G-001", "version": 1, "text": "No absolute claims", "kind": "guideline"},
     ])

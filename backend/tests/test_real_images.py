@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from backend.services.image_validator import measure_text_contrast
+from app.services.image_validator import measure_text_contrast
 
 IMAGE = Path(__file__).resolve().parents[2] / "test_data" / "images" / "low_contrast_ad.png"
 

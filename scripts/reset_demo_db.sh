@@ -62,7 +62,6 @@ SEED_FILES=(
   "data/seeds/03_demo_facts_guidelines.sql"
   "data/seeds/04_living.sql"
   "data/seeds/04b_demo_posts.sql"
-  "data/seeds/05_phase1_inputs.sql"
 )
 
 for file in "${SEED_FILES[@]}"; do
