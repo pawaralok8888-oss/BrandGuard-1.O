@@ -37,7 +37,7 @@ services:
     environment:
       # Overrides the localhost URL in backend/.env. Inside Docker the host is "db".
       DATABASE_URL: postgresql://brandguard:brandguard_dev_password@db:5432/brandguard
-      FRONTEND_ORIGINS: http://localhost:5173
+      FRONTEND_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
     ports:
       - "8000:8000"
 

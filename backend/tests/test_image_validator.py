@@ -2,7 +2,7 @@ import random
 
 from PIL import Image
 
-from backend.services.image_validator import ImageValidator, contrast_ratio
+from app.services.image_validator import ImageValidator, contrast_ratio
 
 
 # ---------- Contrast ----------

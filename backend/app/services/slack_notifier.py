@@ -8,10 +8,16 @@ from __future__ import annotations
 from app.config import get_settings
 
 
+def is_configured() -> bool:
+    """True when both the bot token and the channel are set."""
+    settings = get_settings()
+    return bool(settings.slack_bot_token and settings.slack_channel_id)
+
+
 def notify_alert(alert: dict, client=None) -> bool:
     """Post a short alert message to Slack. Returns True only if a message was sent."""
     settings = get_settings()
-    if not settings.slack_bot_token or not settings.slack_channel_id:
+    if not is_configured():
         return False
 
     if client is None:

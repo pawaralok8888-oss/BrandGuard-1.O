@@ -25,6 +25,9 @@ from app.security import current_user
 # -----------------------------------------------------------------------------
 # Fakes for DB connection
 # -----------------------------------------------------------------------------
+from tests.lookups import lookup_rows
+
+
 class FakeResult:
     def __init__(self, row: dict[str, Any] | None = None, rows: list[dict[str, Any]] | None = None):
         self._row = row
@@ -63,6 +66,9 @@ class FakeConn:
 
     def execute(self, sql: str, params: tuple = ()) -> FakeResult:
         self.calls.append((sql, tuple(params) if params else ()))
+        lookup = lookup_rows(sql)
+        if lookup is not None:
+            return FakeResult(rows=lookup)
         normalized = " ".join(sql.strip().split())
 
         if "SELECT 1 FROM products WHERE id" in normalized:
@@ -255,15 +261,24 @@ def test_pydantic_validation_guideline_text_over_20000_chars():
         )
 
 
-def test_pydantic_validation_channel_outside_four_allowed_values():
-    with pytest.raises(ValidationError):
-        GuidelineCreate(
-            short_name="Short",
-            title="Title",
-            text="Valid guideline text",
-            category="Terminology",
-            applies_to_channels=["TikTok"],  # type: ignore[list-item]
-        )
+def test_unknown_channel_is_rejected_using_the_database_list():
+    client = make_client(role="manager")
+    res = client.post("/api/knowledge/guidelines", json={
+        "short_name": "Short", "title": "Title", "text": "Valid guideline text",
+        "category": "Terminology", "applies_to_channels": ["TikTok"],
+    })
+    assert res.status_code == 422
+    assert "TikTok" in res.json()["detail"]
+
+
+def test_unknown_category_is_rejected_using_the_database_list():
+    client = make_client(role="manager")
+    res = client.post("/api/knowledge/guidelines", json={
+        "short_name": "Short", "title": "Title", "text": "Valid guideline text",
+        "category": "Billboards",
+    })
+    assert res.status_code == 422
+    assert "Billboards" in res.json()["detail"]
 
 
 def test_pydantic_validation_status_contradicting_dates():
@@ -282,14 +297,24 @@ def test_pydantic_validation_status_contradicting_dates():
 # -----------------------------------------------------------------------------
 # 4. Upload route tests
 # -----------------------------------------------------------------------------
-def test_upload_pdf_gives_415():
+def test_upload_unsupported_extension_gives_415():
     client = make_client(role="manager")
     res = client.post(
         "/api/knowledge/guidelines/upload",
-        files={"file": ("guideline.pdf", b"%PDF-1.4...", "application/pdf")},
+        files={"file": ("guideline.exe", b"MZ...", "application/octet-stream")},
         data={"category": "Brand Assets"},
     )
     assert res.status_code == 415
+
+
+def test_upload_pdf_that_is_not_really_a_pdf_gives_422():
+    client = make_client(role="manager")
+    res = client.post(
+        "/api/knowledge/guidelines/upload",
+        files={"file": ("guideline.pdf", b"not a pdf", "application/pdf")},
+        data={"category": "Brand Assets"},
+    )
+    assert res.status_code == 422
 
 
 def test_upload_empty_file_gives_422():

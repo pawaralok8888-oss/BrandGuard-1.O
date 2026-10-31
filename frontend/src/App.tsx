@@ -17,6 +17,10 @@ import AnalyticsPage from "@/pages/AnalyticsPage";
 import ContentPage from "@/pages/ContentPage";
 import BrandGuidelinesPage from "@/pages/BrandGuidelinesPage";
 import RoutePlaceholder from "@/pages/RoutePlaceholder";
+import BrandRulesPage from "@/pages/BrandRulesPage";
+import IntakePage from "@/pages/IntakePage";
+import NotificationsPage from "@/pages/NotificationsPage";
+import SettingsPage from "@/pages/SettingsPage";
 import LoginPage from "@/pages/LoginPage";
 
 import { api, getToken, setToken } from "@/api/client";
@@ -113,7 +117,7 @@ function AuthenticatedApp() {
               <Route path="/content" element={<ContentPage />} />
               <Route path="/content/compose" element={<ComposePage />} />
               <Route path="/review-queue" element={<ReviewQueuePage />} />
-              <Route path="/guidelines" element={<BrandGuidelinesPage />} />
+              <Route path="/guidelines" element={<BrandGuidelinesPage role={role} />} />
               <Route path="/facts" element={<ProductsFactsPage />} />
               <Route
                 path="/products-facts"
@@ -121,7 +125,10 @@ function AuthenticatedApp() {
               />
               <Route path="/alerts" element={<AlertsPage />} />
               <Route path="/analytics" element={<AnalyticsPage />} />
-              <Route path="/settings" element={<RoutePlaceholder />} />
+              <Route path="/brand-rules" element={<BrandRulesPage role={role} currentUserId={user.id} />} />
+              <Route path="/intake" element={<IntakePage role={role} />} />
+              <Route path="/notifications" element={<NotificationsPage role={role} />} />
+              <Route path="/settings" element={<SettingsPage user={user} />} />
               <Route path="*" element={<RoutePlaceholder />} />
             </Routes>
           </div>

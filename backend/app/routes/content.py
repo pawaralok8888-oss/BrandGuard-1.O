@@ -16,6 +16,8 @@ router = APIRouter(prefix="/api/content", tags=["content"])
 Channel = Literal["Website", "Instagram", "Email", "Ad"]
 Team = Literal["Marketing", "Sales", "Brand", "Legal", "Product", "Design", "HR", "Support"]
 EDITABLE_STATUSES = ("Draft", "Checked", "Fixing", "Changes requested")
+# Asset type for the content. "" means not chosen yet. Values are stored as given.
+AssetFormat = Literal["", "social_post", "web_page", "email", "ad", "product_page", "blog_article"]
 
 
 class ContentCreate(BaseModel):
@@ -24,6 +26,7 @@ class ContentCreate(BaseModel):
     team: Team
     bodyText: str
     bodyHtml: str
+    format: AssetFormat = ""
     thumbnailArt: str | None = None
     imageUrl: str | None = None
     altText: str | None = None
@@ -32,6 +35,7 @@ class ContentCreate(BaseModel):
 class ContentUpdate(BaseModel):
     title: str | None = Field(default=None, min_length=1, max_length=500)
     channel: Channel | None = None
+    format: AssetFormat | None = None
     bodyText: str | None = None
     bodyHtml: str | None = None
     altText: str | None = None
@@ -54,6 +58,8 @@ def to_item(row: dict) -> dict:
         "thumbnailArt": row["thumbnail_art"],
         "imageUrl": row["image_url"],
         "altText": row["alt_text"],
+        "format": row["format"],
+        "imageIsLogo": row["image_is_logo"],
     }
 
 
@@ -61,7 +67,7 @@ def _content_select() -> str:
     return """
         SELECT c.id, c.title, c.channel, c.team, c.status, c.body_text,
                c.body_html, c.owner_id, c.created_at, c.updated_at,
-               c.thumbnail_art, c.image_url, c.alt_text,
+               c.thumbnail_art, c.image_url, c.alt_text, c.format, c.image_is_logo,
                COALESCE((SELECT MAX(cv.version)
                          FROM content_versions cv
                          WHERE cv.content_id = c.id), 0) AS current_version
@@ -115,13 +121,13 @@ def create_content(
             """
             INSERT INTO content (
                 id, title, channel, team, owner_id, status, body_text, body_html,
-                thumbnail_art, image_url, alt_text, created_at, updated_at
-            ) VALUES (%s, %s, %s, %s, %s, 'Draft', %s, %s, %s, %s, %s, now(), now())
+                thumbnail_art, image_url, alt_text, format, created_at, updated_at
+            ) VALUES (%s, %s, %s, %s, %s, 'Draft', %s, %s, %s, %s, %s, %s, now(), now())
             """,
             (
                 content_id, payload.title.strip(), payload.channel, payload.team,
                 user["id"], payload.bodyText, payload.bodyHtml, payload.thumbnailArt,
-                payload.imageUrl, payload.altText,
+                payload.imageUrl, payload.altText, payload.format,
             ),
         )
         conn.execute(
@@ -181,6 +187,7 @@ def update_content(
         "bodyText": "body_text",
         "bodyHtml": "body_html",
         "altText": "alt_text",
+        "format": "format",
     }
 
     with conn.transaction():

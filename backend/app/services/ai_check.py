@@ -148,16 +148,19 @@ def run_ai_stage(
     if not body_text.strip():
         return AIStage(status="success")
 
-    evidence = get_evidence(conn, channel)
-    if not evidence:
-        return AIStage(status="success")
-
     # Redaction (plan step 6): confidential terms never leave the server. The model sees
     # masked text and masked evidence; findings are still matched against the original
     # body_text, so a quote containing a mask character cannot match and is dropped.
+    # The masked post is also the query for evidence ranking, so the embedding API never
+    # sees unmasked text either.
     terms = normalise_terms(confidential_terms or [])
     redaction_key = terms_digest(terms)
     model_body, body_hits = mask_text(body_text, terms)
+
+    evidence = get_evidence(conn, channel, query_text=model_body)
+    if not evidence:
+        return AIStage(status="success")
+
     redacted_evidence = []
     evidence_hits = 0
     for item in evidence:

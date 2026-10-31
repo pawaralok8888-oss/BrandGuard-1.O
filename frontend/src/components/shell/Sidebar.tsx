@@ -1,5 +1,5 @@
 import { NavLink } from "react-router-dom";
-import { Activity, BellRing, BookOpen, CheckSquare, FileText, PackageCheck, X } from "lucide-react";
+import { Activity, BellRing, BookOpen, CheckSquare, ClipboardList, FileText, PackageCheck, Send, Settings, ShieldCheck, X } from "lucide-react";
 import type { UserRole } from "@/types";
 import { cn } from "@/lib/utils";
 
@@ -17,6 +17,10 @@ const navigation = [
   { label: "Products and Facts", to: "/facts", icon: PackageCheck, roles: ["creator", "manager", "reviewer", "admin"] as UserRole[] },
   { label: "Alerts", to: "/alerts", icon: BellRing, roles: ["creator", "manager", "reviewer", "admin"] as UserRole[] },
   { label: "Analytics", to: "/analytics", icon: Activity, roles: ["manager", "reviewer", "admin"] as UserRole[] },
+  { label: "Brand Rules", to: "/brand-rules", icon: ShieldCheck, roles: ["manager", "admin"] as UserRole[] },
+  { label: "Brand Intake", to: "/intake", icon: ClipboardList, roles: ["manager", "admin"] as UserRole[] },
+  { label: "Notifications", to: "/notifications", icon: Send, roles: ["manager", "admin"] as UserRole[] },
+  { label: "Settings", to: "/settings", icon: Settings, roles: ["creator", "manager", "reviewer", "admin"] as UserRole[] },
 ];
 
 export function Sidebar({ role, mobileOpen, onClose, alertCount }: SidebarProps) {

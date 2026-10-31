@@ -1,4 +1,16 @@
-import { apiRequest } from "./client";
+import { apiBlob, apiRequest } from "./client";
+
+export type AssetFormat = "" | "social_post" | "web_page" | "email" | "ad" | "product_page" | "blog_article";
+
+export const ASSET_FORMAT_OPTIONS: { value: AssetFormat; label: string }[] = [
+  { value: "", label: "Choose asset type" },
+  { value: "social_post", label: "Social post" },
+  { value: "web_page", label: "Web page" },
+  { value: "email", label: "Email" },
+  { value: "ad", label: "Ad" },
+  { value: "product_page", label: "Product page" },
+  { value: "blog_article", label: "Blog article" },
+];
 
 export type ContentChannel = "Website" | "Instagram" | "Email" | "Ad";
 export type ContentTeam = "Marketing" | "Sales" | "Brand" | "Legal" | "Product" | "Design" | "HR" | "Support";
@@ -19,6 +31,8 @@ export interface ContentRecord {
   thumbnailArt: string | null;
   imageUrl: string | null;
   altText: string | null;
+  format: AssetFormat;
+  imageIsLogo: boolean;
 }
 
 export interface ContentInput {
@@ -30,9 +44,10 @@ export interface ContentInput {
   thumbnailArt?: string | null;
   imageUrl?: string | null;
   altText?: string | null;
+  format?: AssetFormat;
 }
 
-export type ContentPatch = Partial<Pick<ContentInput, "title" | "channel" | "bodyText" | "bodyHtml" | "altText">>;
+export type ContentPatch = Partial<Pick<ContentInput, "title" | "channel" | "bodyText" | "bodyHtml" | "altText" | "format">>;
 
 export interface ContentVersion {
   version: number;
@@ -77,3 +92,38 @@ export const listVersions = (id: string): Promise<ContentVersion[]> =>
 
 export const listRevisions = (id: string): Promise<Revision[]> =>
   apiRequest<Revision[]>(`/api/content/${encodeURIComponent(id)}/revisions`);
+
+export interface UploadedImage {
+  contentId: string;
+  imageUrl: string;
+  imageWidth: number;
+  imageHeight: number;
+  altText: string | null;
+}
+
+/** Attach an image to a saved draft. The image checks read this file when the draft is checked. */
+export const uploadContentImage = (
+  id: string,
+  file: File,
+  altText: string,
+  isLogo = false,
+): Promise<UploadedImage> => {
+  const form = new FormData();
+  form.append("file", file);
+  form.append("alt_text", altText);
+  form.append("is_logo", String(isLogo));
+  return apiRequest<UploadedImage>(`/api/content/${encodeURIComponent(id)}/image`, {
+    method: "POST",
+    body: form,
+  });
+};
+
+/** Load the stored image for a draft as an object URL the page can show. Revoke it when done. */
+export const loadContentImageUrl = async (id: string): Promise<string> => {
+  const blob = await apiBlob(`/api/content/${encodeURIComponent(id)}/image`);
+  return URL.createObjectURL(blob);
+};
+
+/** Remove the saved image from a draft. The server refuses once the content is in review. */
+export const deleteContentImage = (id: string): Promise<void> =>
+  apiRequest<void>(`/api/content/${encodeURIComponent(id)}/image`, { method: "DELETE" });

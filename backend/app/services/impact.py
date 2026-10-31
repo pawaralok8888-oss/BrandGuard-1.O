@@ -66,7 +66,19 @@ def apply_fact_change(
         (NEEDS_REVALIDATION, content_ids, PUBLISHED),
     )
 
+    alerts: list[dict] = []
     for item in impact["affectedItems"]:
+        alert_id = f"AL-{uuid.uuid4().hex[:12]}"
+        alerts.append({
+            "id": alert_id,
+            "recipient_id": item["ownerId"],
+            "content_id": item["contentId"],
+            "title": f"Fact {fact_id} changed: {item['title']}",
+            "priority": severity,
+            "old_value": old_statement,
+            "new_value": new_statement,
+            "suggested_fix": suggested_fix,
+        })
         conn.execute(
             """
             INSERT INTO alerts
@@ -75,7 +87,7 @@ def apply_fact_change(
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """,
             (
-                f"AL-{uuid.uuid4().hex[:12]}",
+                alert_id,
                 item["ownerId"],
                 item["contentId"],
                 fact_id,
@@ -90,5 +102,6 @@ def apply_fact_change(
             ),
         )
 
+    impact["alerts"] = alerts
     return impact
 

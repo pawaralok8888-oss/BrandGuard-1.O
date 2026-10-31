@@ -12,3 +12,6 @@ __pycache__/
 # Archives and local bundles
 *.zip
 app.zip
+
+# Uploaded content images (local storage; wiped on redeploy unless a volume is mounted)
+uploads/

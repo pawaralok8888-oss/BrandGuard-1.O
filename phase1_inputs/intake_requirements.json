@@ -1,0 +1,101 @@
+{
+  "version": 1,
+  "description": "Required-field intake spec. Each field is a slot the brand must fill. Fields with no approved rule show as 'not entered' in the gap report. 'required' means the brand must either upload a document covering it or answer 'not applicable' or 'do not have this'.",
+  "status_values": ["entered", "not_entered", "not_applicable", "do_not_have"],
+  "categories": [
+    {
+      "key": "product_specification",
+      "label": "Product specification",
+      "asset_types": ["product_image", "product_label", "campaign_idea", "social_post", "web_copy", "ad_copy"],
+      "checker_types": ["exact_value", "required_text", "rule"],
+      "fields": [
+        {"key": "sku_names", "label": "SKU names", "type": "list", "required": true, "check": "exact_name"},
+        {"key": "spf_per_sku", "label": "SPF per SKU", "type": "table", "columns": ["sku", "spf"], "required": true, "check": "exact_value"},
+        {"key": "pa_per_sku", "label": "PA rating per SKU", "type": "table", "columns": ["sku", "pa"], "required": true, "check": "exact_value"},
+        {"key": "water_resistance_duration", "label": "Water resistance duration per SKU", "type": "table", "columns": ["sku", "minutes"], "required": false, "check": "exact_value"},
+        {"key": "active_ingredients", "label": "Active ingredients per SKU", "type": "table", "columns": ["sku", "ingredients"], "required": true, "check": "rule"},
+        {"key": "reapplication_interval", "label": "Reapplication interval", "type": "text", "required": true, "check": "exact_value"},
+        {"key": "test_reports", "label": "Test reports with IDs", "type": "list", "columns": ["report_id", "test", "date", "lab"], "required": true, "check": "evidence_link"},
+        {"key": "pack_sizes", "label": "Pack sizes per SKU", "type": "table", "columns": ["sku", "size"], "required": true, "check": "exact_value"},
+        {"key": "launch_status", "label": "Launch status per SKU", "type": "table", "columns": ["sku", "status", "launch_date"], "required": true, "check": "rule"}
+      ]
+    },
+    {
+      "key": "legal_regulatory",
+      "label": "Legal and regulatory",
+      "asset_types": ["any"],
+      "checker_types": ["required_text", "rule", "evidence_link"],
+      "fields": [
+        {"key": "markets", "label": "Markets sold in", "type": "list", "required": true, "check": "rule"},
+        {"key": "mandatory_warnings", "label": "Mandatory warnings per market", "type": "table", "columns": ["market", "warning_text"], "required": true, "check": "required_text"},
+        {"key": "prohibited_claims", "label": "Prohibited claims", "type": "list", "required": true, "check": "banned_phrase"},
+        {"key": "certifications", "label": "Certification numbers with expiry dates", "type": "table", "columns": ["certification", "number", "expiry_date"], "required": true, "check": "expiry"},
+        {"key": "advertising_code", "label": "Advertising code the brand follows", "type": "text", "required": true, "check": "rule"}
+      ]
+    },
+    {
+      "key": "visual_identity",
+      "label": "Visual identity",
+      "asset_types": ["any_visual", "product_image", "product_label", "packaging_design"],
+      "checker_types": ["color_code", "font_check", "contrast", "image_rule"],
+      "fields": [
+        {"key": "logo_files", "label": "Logo files and versions", "type": "file", "required": true, "check": "logo_match"},
+        {"key": "clear_space", "label": "Clear-space rules", "type": "text", "required": true, "check": "manual_review"},
+        {"key": "hex_values", "label": "HEX colour values", "type": "table", "columns": ["name", "hex"], "required": true, "check": "color_code"},
+        {"key": "pantone_values", "label": "Pantone values", "type": "table", "columns": ["name", "pantone"], "required": false, "check": "color_code"},
+        {"key": "fonts", "label": "Fonts with licence status", "type": "table", "columns": ["font", "use", "license_status"], "required": true, "check": "font_check"},
+        {"key": "imagery_rules", "label": "Imagery rules", "type": "text", "required": true, "check": "manual_review"}
+      ]
+    },
+    {
+      "key": "tone_of_voice",
+      "label": "Tone of voice",
+      "asset_types": ["social_post", "caption", "email", "web_copy", "ad_copy", "creator_script", "video_script", "campaign_idea"],
+      "checker_types": ["banned_phrase", "llm_semantic"],
+      "fields": [
+        {"key": "voice_description", "label": "Voice description", "type": "text", "required": true, "check": "llm_semantic"},
+        {"key": "approved_phrases", "label": "Approved phrases", "type": "list", "required": false, "check": "reference"},
+        {"key": "banned_phrases", "label": "Banned phrases", "type": "list", "required": true, "check": "banned_phrase"},
+        {"key": "good_examples", "label": "Example good copy", "type": "list", "required": false, "check": "reference"},
+        {"key": "bad_examples", "label": "Example bad copy", "type": "list", "required": false, "check": "reference"}
+      ]
+    },
+    {
+      "key": "content_creators",
+      "label": "Content creators",
+      "asset_types": ["creator_script", "creator_brief", "video_script", "video_asset"],
+      "checker_types": ["required_text", "llm_semantic", "manual_review"],
+      "fields": [
+        {"key": "disclosure_wording", "label": "Disclosure wording", "type": "text", "required": true, "check": "required_text"},
+        {"key": "approved_creators", "label": "Approved creators", "type": "list", "required": true, "check": "approved_list"},
+        {"key": "repost_usage_rights", "label": "Usage rights for reposting", "type": "text", "required": true, "check": "manual_review"},
+        {"key": "script_approval_process", "label": "Script approval process", "type": "text", "required": true, "check": "manual_review"}
+      ]
+    },
+    {
+      "key": "packaging",
+      "label": "Packaging",
+      "asset_types": ["packaging_design", "packaging_copy"],
+      "checker_types": ["required_text", "image_rule", "exact_value"],
+      "fields": [
+        {"key": "dielines", "label": "Dielines", "type": "file", "required": true, "check": "manual_review"},
+        {"key": "mandatory_panel_text", "label": "Mandatory panel text", "type": "list", "required": true, "check": "required_text"},
+        {"key": "recycling_symbols", "label": "Recycling symbols and rules", "type": "text", "required": true, "check": "rule"},
+        {"key": "barcode_area", "label": "Barcode area dimensions", "type": "text", "required": true, "check": "image_rule"},
+        {"key": "print_specs", "label": "Print specs", "type": "text", "required": true, "check": "manual_review"}
+      ]
+    },
+    {
+      "key": "marketing",
+      "label": "Marketing",
+      "asset_types": ["campaign_idea", "promo", "ad_copy", "social_post", "email"],
+      "checker_types": ["rule", "exact_value", "llm_semantic"],
+      "fields": [
+        {"key": "approved_offers", "label": "Approved offers", "type": "table", "columns": ["offer", "terms", "start", "end"], "required": true, "check": "expiry"},
+        {"key": "promo_calendar", "label": "Promo calendar", "type": "table", "columns": ["promo", "start", "end"], "required": true, "check": "expiry"},
+        {"key": "competitor_comparison_policy", "label": "Competitor comparison policy", "type": "text", "required": true, "check": "llm_semantic"},
+        {"key": "approval_owner", "label": "Approval owner", "type": "text", "required": true, "check": "reference"}
+      ]
+    }
+  ]
+}

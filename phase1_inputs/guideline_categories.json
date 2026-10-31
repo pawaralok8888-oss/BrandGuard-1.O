@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "description": "Placeholder categories for brand guidelines. Each category maps to the asset types it governs. Brands can add custom categories without code changes.",
+  "categories": [
+    {"key": "text_copy", "label": "Written copy", "appliesTo": ["social_post", "caption", "email", "web_copy", "ad_copy"], "checker": "rules_and_ai_text"},
+    {"key": "creator_brief", "label": "Content creator guidelines", "appliesTo": ["creator_script", "creator_brief"], "checker": "ai_text"},
+    {"key": "video", "label": "Video and reels", "appliesTo": ["video_script", "video_asset"], "checker": "ai_text_and_transcript"},
+    {"key": "product_design", "label": "Product design", "appliesTo": ["product_image", "product_label"], "checker": "image_rules"},
+    {"key": "packaging", "label": "Packaging", "appliesTo": ["packaging_design", "packaging_copy"], "checker": "image_rules_and_text"},
+    {"key": "marketing_ideas", "label": "Marketing ideas and campaigns", "appliesTo": ["campaign_idea", "promo"], "checker": "ai_text"},
+    {"key": "visual_identity", "label": "Visual identity", "appliesTo": ["any_visual"], "checker": "image_rules"},
+    {"key": "claims_legal", "label": "Claims and legal", "appliesTo": ["any"], "checker": "rules_and_ai_text"},
+    {"key": "custom", "label": "Other (custom)", "appliesTo": ["any"], "checker": "manual_review"}
+  ]
+}

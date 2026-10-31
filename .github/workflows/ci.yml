@@ -81,6 +81,11 @@ jobs:
         run: |
           psql -h localhost -U postgres -d brandguard -v ON_ERROR_STOP=1 -f data/schema.sql
           for f in data/seeds/*.sql; do
+            case "$f" in
+              *05_phase1_inputs.sql)
+                echo "Skipping $f: it needs an intake design that is not merged yet"
+                continue ;;
+            esac
             echo "Loading $f"
             psql -h localhost -U postgres -d brandguard -v ON_ERROR_STOP=1 -f "$f"
           done

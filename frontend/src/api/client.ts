@@ -1,6 +1,6 @@
-﻿
+
 const API_BASE_URL = (
-  import.meta.env.VITE_API_URL || "http://localhost:8000"
+  import.meta.env.VITE_API_URL || ""
 ).replace(/\/+$/, "");
 
 const TOKEN_KEY = "brandguard_access_token";
@@ -99,6 +99,24 @@ export async function apiRequest<T>(
   }
 
   return (await response.json()) as T;
+}
+
+/** Fetch a file that needs the login token (for example an uploaded image), as a Blob. */
+export async function apiBlob(path: string): Promise<Blob> {
+  const token = getToken();
+  const headers = new Headers();
+  if (token) headers.set("Authorization", `Bearer ${token}`);
+
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, { headers });
+  } catch (error) {
+    throw new ApiError(`Cannot connect to BrandGuard API at ${API_BASE_URL}.`, 0, error);
+  }
+  if (!response.ok) {
+    throw new ApiError(`Request failed (${response.status})`, response.status);
+  }
+  return response.blob();
 }
 
 export const api = {

@@ -1,0 +1,212 @@
+[
+  {
+    "id": "post-001",
+    "channel": "instagram",
+    "text": "Get naturally glowing skin with GreenGlow Tea Tree Face Wash! 100% clear skin overnight. Results may vary from person to person.",
+    "expected_findings": [
+      {
+        "rule": "G-001",
+        "span": "100% clear skin overnight",
+        "severity": "critical"
+      }
+    ]
+  },
+  {
+    "id": "post-002",
+    "channel": "instagram",
+    "text": "GreenGlow Tea Tree Face Wash is made with tea tree and neem extract. Dermatologically tested. Results may vary from person to person.",
+    "expected_findings": []
+  },
+  {
+    "id": "post-003",
+    "channel": "website",
+    "text": "Discover the best face wash in India for oily and combination skin, crafted with natural neem and tea tree extract.",
+    "expected_findings": [
+      {
+        "rule": "G-002",
+        "span": "the best face wash in India",
+        "severity": "warning"
+      }
+    ]
+  },
+  {
+    "id": "post-004",
+    "channel": "instagram",
+    "text": "Our gentle GreenGlow Tea Tree Face Wash helps reduce the appearance of acne and cleanses pores deeply.",
+    "expected_findings": [
+      {
+        "rule": "G-004",
+        "span": "Our gentle GreenGlow Tea Tree Face Wash helps reduce the appearance of acne and cleanses pores deeply.",
+        "severity": "warning"
+      }
+    ]
+  },
+  {
+    "id": "post-005",
+    "channel": "email",
+    "text": "Try GreenGlow Tea Tree Wash today and enjoy refreshed skin every morning. Results may vary from person to person.",
+    "expected_findings": [
+      {
+        "rule": "G-011",
+        "span": "GreenGlow Tea Tree Wash",
+        "severity": "warning"
+      }
+    ]
+  },
+  {
+    "id": "post-006",
+    "channel": "website",
+    "text": "Next quarter we are launching Project Aurora to revolutionize daily skincare routines worldwide.",
+    "expected_findings": [
+      {
+        "rule": "G-009",
+        "span": "Project Aurora",
+        "severity": "critical"
+      }
+    ]
+  },
+  {
+    "id": "post-007",
+    "channel": "ad",
+    "text": "Shop GreenGlow Tea Tree Face Wash for just Rs 399 for 100 ml. Results may vary from person to person.",
+    "expected_findings": [
+      {
+        "rule": "G-010",
+        "span": "Rs 399 for 100 ml",
+        "severity": "critical"
+      }
+    ]
+  },
+  {
+    "id": "post-008",
+    "channel": "website",
+    "text": "Our advanced formula actively treats acne and cures dry skin with herbal ingredients.",
+    "expected_findings": [
+      {
+        "rule": "G-012",
+        "span": "treats acne",
+        "severity": "critical"
+      }
+    ]
+  },
+  {
+    "id": "post-009",
+    "channel": "email",
+    "text": "Better than Cetaphil in every way, our face wash cleanses gently without stripping moisture. Results may vary from person to person.",
+    "expected_findings": [
+      {
+        "rule": "G-013",
+        "span": "Cetaphil",
+        "severity": "warning"
+      }
+    ]
+  },
+  {
+    "id": "post-010",
+    "channel": "instagram",
+    "text": "We are so grateful that our clients love it and share their positive skincare journeys every day! Results may vary from person to person.",
+    "expected_findings": [
+      {
+        "rule": "G-003",
+        "span": "clients",
+        "severity": "info"
+      }
+    ]
+  },
+  {
+    "id": "post-011",
+    "channel": "website",
+    "text": "GreenGlow Tea Tree Face Wash removes acne completely and prevents future blemishes.",
+    "expected_findings": [
+      {
+        "rule": "F-007",
+        "span": "removes acne",
+        "severity": "critical"
+      }
+    ]
+  },
+  {
+    "id": "post-012",
+    "channel": "ad",
+    "text": "Stay safe in the sun with GreenGlow Sunscreen SPF 50, providing 100% protection from sun damage. Results may vary from person to person.",
+    "expected_findings": [
+      {
+        "rule": "F-005",
+        "span": "100% protection from sun damage",
+        "severity": "critical"
+      }
+    ]
+  },
+  {
+    "id": "post-013",
+    "channel": "website",
+    "text": "We are proud of our cruelty-free certificate from 2025 as part of our ongoing ethical commitments.",
+    "expected_findings": [
+      {
+        "rule": "F-009",
+        "span": "our cruelty-free certificate from 2025",
+        "severity": "warning"
+      }
+    ]
+  },
+  {
+    "id": "post-014",
+    "channel": "instagram",
+    "text": "Experience guaranteed clearer skin in just three days with daily application. Results may vary from person to person.",
+    "expected_findings": [
+      {
+        "rule": "G-001",
+        "span": "guaranteed",
+        "severity": "critical"
+      }
+    ]
+  },
+  {
+    "id": "post-015",
+    "channel": "email",
+    "text": "Say hello to users everywhere enjoying refreshed and radiant skin this festive season! Results may vary from person to person.",
+    "expected_findings": [
+      {
+        "rule": "G-003",
+        "span": "users",
+        "severity": "info"
+      }
+    ]
+  },
+  {
+    "id": "post-016",
+    "channel": "ad",
+    "text": "Our fastest acting cleanser leaves your skin feeling invigorated. Results may vary from person to person.",
+    "expected_findings": [
+      {
+        "rule": "G-002",
+        "span": "fastest",
+        "severity": "warning"
+      }
+    ]
+  },
+  {
+    "id": "post-017",
+    "channel": "website",
+    "text": "GreenGlow Tea Tree Face Wash is Rs 349 for 100 ml. It is suitable for oily and combination skin.",
+    "expected_findings": []
+  },
+  {
+    "id": "post-018",
+    "channel": "email",
+    "text": "GreenGlow Sunscreen SPF 50 is rated PA+++ and costs Rs 499 for 50 g. Free shipping on orders above Rs 499 until 2026-12-31. Results may vary from person to person.",
+    "expected_findings": []
+  },
+  {
+    "id": "post-019",
+    "channel": "ad",
+    "text": "GreenGlow Tea Tree Face Wash is vegan, paraben-free, sulphate-free, and alcohol-free. Results may vary from person to person.",
+    "expected_findings": []
+  },
+  {
+    "id": "post-020",
+    "channel": "website",
+    "text": "GreenGlow Tea Tree Face Wash is dermatologically tested. It costs Rs 349 for 100 ml and contains tea tree and neem extract.",
+    "expected_findings": []
+  }
+]
