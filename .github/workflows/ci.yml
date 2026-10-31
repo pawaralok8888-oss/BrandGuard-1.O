@@ -80,7 +80,6 @@ jobs:
           PGPASSWORD: postgres
         run: |
           psql -h localhost -U postgres -d brandguard -v ON_ERROR_STOP=1 -f data/schema.sql
-          psql -h localhost -U postgres -d brandguard -v ON_ERROR_STOP=1 -f database/migrations/20261030_phase1_inputs.sql
           for f in data/seeds/*.sql; do
             case "$f" in
               *05_phase1_inputs.sql)
