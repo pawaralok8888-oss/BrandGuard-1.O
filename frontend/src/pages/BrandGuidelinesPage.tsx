@@ -9,7 +9,6 @@ import {
   getGuidelineVersions,
   getGlossary,
   getGuidelineCategories,
-  uploadGuidelinesFile,
   type GuidelineCategoryName,
   type GuidelineItem,
   type GuidelineVersionItem,
@@ -44,7 +43,6 @@ import {
 
 type Tab = "Rules" | "Drafts" | "Glossary" | "Brand Assets";
 
-const UPLOAD_LIMIT_MB = { text: 1, binary: 10 } as const;
 type Severity = "Critical" | "High" | "Medium" | "Low";
 type Rule = {
   id: string;
@@ -159,7 +157,7 @@ function SkeletonRows() {
 }
 
 export default function BrandGuidelinesPage({ role }: { role: UserRole }) {
-  // Uploading guidelines and reviewing their draft rules are for managers and admins.
+    // Reviewing draft rules is for managers and admins.
   const canEdit = role === "manager" || role === "admin";
   const [activeTab, setActiveTab] = useState<Tab>("Rules");
   const [rules, setRules] = useState<Rule[]>(initialRules);
