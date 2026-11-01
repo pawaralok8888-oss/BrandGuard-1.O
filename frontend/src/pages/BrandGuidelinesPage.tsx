@@ -181,15 +181,9 @@ export default function BrandGuidelinesPage({ role }: { role: UserRole }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [emptyMode, setEmptyMode] = useState(false);
-  const [uploadFile, setUploadFile] = useState<File | null>(null);
-  const [uploading, setUploading] = useState(false);
-  const [uploadCategory, setUploadCategory] = useState<GuidelineCategoryName>("");
   const [categories, setCategories] = useState<string[]>([]);
   const [uploadSummary, setUploadSummary] = useState<UploadSummary | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
-
-  const [uploadError, setUploadError] = useState("");
 
   async function loadGuidelinesData() {
     setLoading(true);
@@ -230,16 +224,12 @@ export default function BrandGuidelinesPage({ role }: { role: UserRole }) {
     void loadGuidelinesData();
   }, []);
 
-  // Load the category list from the server, and default the upload to the first one.
+  // Load the category list for the Rules filter and the rule editor.
   useEffect(() => {
-    if (!canEdit) return;
     getGuidelineCategories()
-      .then((list) => {
-        setCategories(list);
-        setUploadCategory((current) => current || list[0] || "");
-      })
+      .then((list) => setCategories(list))
       .catch(() => setToast("Could not load guideline categories."));
-  }, [canEdit]);
+  }, []);
 
   useEffect(() => {
     if (!toast) return;
@@ -378,50 +368,6 @@ export default function BrandGuidelinesPage({ role }: { role: UserRole }) {
     );
     setSuggestionDismissed(true);
     setToast("Suggested wording applied.");
-  }
-
-  async function startUpload(file?: File) {
-    if (!file) return;
-    if (!uploadCategory) {
-      setToast("Categories are still loading. Try again in a moment.");
-      return;
-    }
-    const extension = file.name.split(".").pop()?.toLowerCase() ?? "";
-    if (!["txt", "md", "pdf", "docx"].includes(extension)) {
-      setToast("Please choose a .txt, .md, .pdf or .docx file.");
-      return;
-    }
-    const limitMb = ["pdf", "docx"].includes(extension) ? UPLOAD_LIMIT_MB.binary : UPLOAD_LIMIT_MB.text;
-    if (file.size > limitMb * 1024 * 1024) {
-      setToast(`That file is larger than ${limitMb} MB.`);
-      return;
-    }
-    setUploadFile(file);
-    setUploadError("");
-    setUploadSummary(null);
-    setUploading(true);
-    try {
-      const saved = await uploadGuidelinesFile(file, uploadCategory);
-      setUploadSummary({
-        guideline: saved.shortName || saved.title,
-        ruleCandidates: saved.ruleCandidates,
-        unparsedLines: saved.unparsedLines,
-      });
-      setUploadFile(null);
-      setToast(
-        saved.ruleCandidates > 0
-          ? `Guideline saved. ${saved.ruleCandidates} draft ${saved.ruleCandidates === 1 ? "rule" : "rules"} ready to review.`
-          : "Guideline saved. No rules could be drafted from it; see the lines listed below.",
-      );
-      await loadGuidelinesData();
-      setActiveTab("Drafts");
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Upload failed. Please check the server logs.";
-      setUploadError(message);
-      setToast(message);
-    } finally {
-      setUploading(false);
-    }
   }
 
   const tabs: Tab[] = canEdit
