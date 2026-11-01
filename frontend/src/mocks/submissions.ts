@@ -1,0 +1,118 @@
+// Mock data for Phase 2 screens. Matches phase2_contract.md section 8.
+// Replace imports with api/submissions.ts functions once the backend is merged.
+
+import type { Finding } from "../types";
+import type { Attachment, Submission } from "../api/submissions";
+
+export const mockSubmission: Submission = {
+  id: "CNT-0142",
+  title: "Summer SPF launch script",
+  kind: "script",
+  channel: "General",
+  team: "Marketing",
+  status: "Draft",
+  bodyText: "Hook: Protect your skin all day, no reapplication needed.",
+  ownerId: "user-creator",
+  ownerName: "Sam Creator",
+  readSummary: { attachments: 2, pending: 0, reading: 0, ready: 1, held: 1, failed: 0, partial: 0 },
+  hold: {
+    reason: "confidential_term",
+    routedTo: "manager",
+    message:
+      "This file was held for manager review because it may contain internal information. A manager will contact you.",
+  },
+  createdAt: "2026-11-02T09:14:00Z",
+  updatedAt: "2026-11-02T09:20:00Z",
+};
+
+export const mockAttachments: Attachment[] = [
+  {
+    id: "ATT-0007",
+    contentId: "CNT-0142",
+    filename: "spf_banner_v3.png",
+    mimeType: "image/png",
+    kind: "image",
+    sizeBytes: 412300,
+    sha256: "9f2c4a7b1d8e0c35f6a2b9d4e7c1a0f3b8d5e2c9a6f1b4d7e0c3a8f5b2d9e41a",
+    pageCount: 1,
+    readStatus: "ready",
+    readMessage: "",
+    uploadedBy: "Sam Creator",
+    uploadedAt: "2026-11-02T09:15:10Z",
+  },
+  {
+    id: "ATT-0008",
+    contentId: "CNT-0142",
+    filename: "internal_launch_brief.pdf",
+    mimeType: "application/pdf",
+    kind: "pdf",
+    sizeBytes: 983400,
+    sha256: "c1d4e7a0b3f6c9d2e5a8b1f4c7d0e3a6b9f2c5d8e1a4b7f0c3d6e9a2b5f8c1d4",
+    pageCount: 4,
+    readStatus: "held",
+    readMessage:
+      "This file was held for manager review because it may contain internal information. A manager will contact you.",
+    uploadedBy: "Sam Creator",
+    uploadedAt: "2026-11-02T09:16:42Z",
+  },
+];
+
+export const mockFindings: Finding[] = [
+  {
+    id: "FND-0301",
+    contentId: "CNT-0142",
+    type: "claim",
+    start: 6,
+    end: 45,
+    bbox: null,
+    severity: "critical",
+    title: "Absolute protection claim",
+    reason: "Brand guidelines do not allow 'all day' protection claims without evidence.",
+    sourceId: "G-012",
+    sourceVersion: 3,
+    originalText: "Protect your skin all day",
+    suggestedFix: "Protect your skin with up to 2 hours of water resistance",
+    confidence: 0.86,
+    aiGenerated: true,
+    needsHumanReview: false,
+    status: "open",
+  },
+  {
+    id: "FND-0302",
+    contentId: "CNT-0142",
+    type: "image",
+    start: null,
+    end: null,
+    bbox: [0.7, 0.05, 0.2, 0.1],
+    severity: "warning",
+    title: "Logo too small for the banner",
+    reason: "The logo area is below the minimum size in the visual guidelines.",
+    sourceId: "G-021",
+    sourceVersion: 1,
+    originalText: "",
+    suggestedFix: "Enlarge the logo to at least 12% of the banner width",
+    confidence: 0.55,
+    aiGenerated: true,
+    needsHumanReview: true,
+    status: "open",
+  },
+  {
+    id: "FND-0303",
+    contentId: "CNT-0142",
+    type: "security",
+    start: null,
+    end: null,
+    bbox: null,
+    severity: "critical",
+    title: "Confidential term detected",
+    reason: "This file may contain internal information. A manager will review it.",
+    sourceId: "confidential-terms",
+    sourceVersion: 1,
+    originalText: "",
+    suggestedFix: "",
+    confidence: 1,
+    aiGenerated: false,
+    needsHumanReview: true,
+    status: "open",
+  },
+];
