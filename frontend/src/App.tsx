@@ -117,7 +117,7 @@ function AuthenticatedApp() {
               <Route path="/content" element={<ContentPage />} />
               <Route path="/content/compose" element={<ComposePage />} />
               <Route path="/review-queue" element={<ReviewQueuePage />} />
-              <Route path="/guidelines" element={<BrandGuidelinesPage role={role} />} />
+              <Route path="/guidelines" element={<BrandGuidelinesPage role={role} currentUserId={user.id} />} />
               <Route path="/facts" element={<ProductsFactsPage />} />
               <Route
                 path="/products-facts"

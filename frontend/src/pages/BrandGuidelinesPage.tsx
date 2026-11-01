@@ -2,18 +2,33 @@
 import { SHOW_DEV_TOOLS } from "@/lib/devTools";
 import type { UserRole } from "@/types";
 import { DraftRulesPanel, type UploadSummary } from "@/components/guidelines/DraftRulesPanel";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   getGuidelines,
   getGuidelineVersions,
   getGlossary,
   getGuidelineCategories,
-  uploadGuidelinesFile,
   type GuidelineCategoryName,
   type GuidelineItem,
   type GuidelineVersionItem,
   type GlossaryItem,
 } from "@/api/knowledge";
+import {
+  approveBrandRule,
+  createBrandRule,
+  listBrandRules,
+  retireBrandRule,
+  updateBrandRule,
+  type BrandRule,
+  type BrandRuleChannel,
+  type BrandRuleInput,
+  type BrandRuleKind,
+  type BrandRuleSeverity,
+  type BrandRuleStatus,
+} from "@/api/brandRules";
+import { ApiError } from "@/api/client";
+import { cn } from "@/lib/utils";
 import {
   AlertCircle,
   AlertTriangle,
@@ -31,6 +46,8 @@ import {
   Image as ImageIcon,
   Info,
   Loader2,
+  Pencil,
+  Undo2,
   Plus,
   Search,
   ShieldCheck,
@@ -41,9 +58,8 @@ import {
   XCircle,
 } from "lucide-react";
 
-type Tab = "Rules" | "Drafts" | "Glossary" | "Brand Assets" | "Upload";
+type Tab = "Rules" | "Drafts" | "Glossary" | "Brand Assets";
 
-const UPLOAD_LIMIT_MB = { text: 1, binary: 10 } as const;
 type Severity = "Critical" | "High" | "Medium" | "Low";
 type Rule = {
   id: string;
@@ -157,8 +173,8 @@ function SkeletonRows() {
   );
 }
 
-export default function BrandGuidelinesPage({ role }: { role: UserRole }) {
-  // Uploading guidelines and reviewing their draft rules are for managers and admins.
+export default function BrandGuidelinesPage({ role, currentUserId }: { role: UserRole; currentUserId: string }) {
+    // Reviewing draft rules is for managers and admins.
   const canEdit = role === "manager" || role === "admin";
   const [activeTab, setActiveTab] = useState<Tab>("Rules");
   const [rules, setRules] = useState<Rule[]>(initialRules);
@@ -180,14 +196,9 @@ export default function BrandGuidelinesPage({ role }: { role: UserRole }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [emptyMode, setEmptyMode] = useState(false);
-  const [uploadFile, setUploadFile] = useState<File | null>(null);
-  const [uploading, setUploading] = useState(false);
-  const [uploadCategory, setUploadCategory] = useState<GuidelineCategoryName>("");
   const [categories, setCategories] = useState<string[]>([]);
   const [uploadSummary, setUploadSummary] = useState<UploadSummary | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const [uploadError, setUploadError] = useState("");
+  const navigate = useNavigate();
 
   async function loadGuidelinesData() {
     setLoading(true);
@@ -228,16 +239,12 @@ export default function BrandGuidelinesPage({ role }: { role: UserRole }) {
     void loadGuidelinesData();
   }, []);
 
-  // Load the category list from the server, and default the upload to the first one.
+  // Load the category list for the Rules filter and the rule editor.
   useEffect(() => {
-    if (!canEdit) return;
     getGuidelineCategories()
-      .then((list) => {
-        setCategories(list);
-        setUploadCategory((current) => current || list[0] || "");
-      })
+      .then((list) => setCategories(list))
       .catch(() => setToast("Could not load guideline categories."));
-  }, [canEdit]);
+  }, []);
 
   useEffect(() => {
     if (!toast) return;
@@ -378,52 +385,8 @@ export default function BrandGuidelinesPage({ role }: { role: UserRole }) {
     setToast("Suggested wording applied.");
   }
 
-  async function startUpload(file?: File) {
-    if (!file) return;
-    if (!uploadCategory) {
-      setToast("Categories are still loading. Try again in a moment.");
-      return;
-    }
-    const extension = file.name.split(".").pop()?.toLowerCase() ?? "";
-    if (!["txt", "md", "pdf", "docx"].includes(extension)) {
-      setToast("Please choose a .txt, .md, .pdf or .docx file.");
-      return;
-    }
-    const limitMb = ["pdf", "docx"].includes(extension) ? UPLOAD_LIMIT_MB.binary : UPLOAD_LIMIT_MB.text;
-    if (file.size > limitMb * 1024 * 1024) {
-      setToast(`That file is larger than ${limitMb} MB.`);
-      return;
-    }
-    setUploadFile(file);
-    setUploadError("");
-    setUploadSummary(null);
-    setUploading(true);
-    try {
-      const saved = await uploadGuidelinesFile(file, uploadCategory);
-      setUploadSummary({
-        guideline: saved.shortName || saved.title,
-        ruleCandidates: saved.ruleCandidates,
-        unparsedLines: saved.unparsedLines,
-      });
-      setUploadFile(null);
-      setToast(
-        saved.ruleCandidates > 0
-          ? `Guideline saved. ${saved.ruleCandidates} draft ${saved.ruleCandidates === 1 ? "rule" : "rules"} ready to review.`
-          : "Guideline saved. No rules could be drafted from it; see the lines listed below.",
-      );
-      await loadGuidelinesData();
-      setActiveTab("Drafts");
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Upload failed. Please check the server logs.";
-      setUploadError(message);
-      setToast(message);
-    } finally {
-      setUploading(false);
-    }
-  }
-
   const tabs: Tab[] = canEdit
-    ? ["Rules", "Drafts", "Glossary", "Brand Assets", "Upload"]
+    ? ["Rules", "Drafts", "Glossary", "Brand Assets"]
     : ["Rules", "Glossary", "Brand Assets"];
 
   return (
@@ -446,18 +409,6 @@ export default function BrandGuidelinesPage({ role }: { role: UserRole }) {
               <CheckCircle2 size={13} />
               Guidelines active
             </span>
-            {canEdit && (
-              <button
-                onClick={() => {
-                  setActiveTab("Upload");
-                  setUploadFile(null);
-                }}
-                className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#2F5BEA] px-3 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2"
-              >
-                <Upload size={15} />
-                Upload guidelines
-              </button>
-            )}
           </div>
         </header>
 
@@ -730,6 +681,7 @@ export default function BrandGuidelinesPage({ role }: { role: UserRole }) {
                     </>
                   )}
                 </div>
+                <CheckerRulesSection canManage={canEdit} currentUserId={currentUserId} />
               </section>
             )}
 
@@ -833,10 +785,8 @@ export default function BrandGuidelinesPage({ role }: { role: UserRole }) {
                       <p className="mt-1 text-[11px] text-slate-500">Use approved logo files for all branded materials.</p>
                     </div>
                     <button
-                      onClick={() => {
-                        setActiveTab("Upload");
-                        setToast("Upload a guideline or asset file to add a new asset.");
-                      }}
+                    onClick={() => setToast("Brand assets are added on the Brand Intake page.")}
+                      
                       className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-slate-200 px-3 text-xs font-medium text-slate-600 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-400"
                     >
                       <Plus size={14} />
@@ -847,8 +797,8 @@ export default function BrandGuidelinesPage({ role }: { role: UserRole }) {
                     <EmptyState
                       title="No logos yet"
                       description="Upload approved logo files to make them available to your team."
-                      action="Upload asset"
-                      onAction={() => setActiveTab("Upload")}
+                      action="Go to Brand Intake"
+                      onAction={() => navigate("/intake")}
                     />
                   ) : (
                     <div className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -973,90 +923,7 @@ export default function BrandGuidelinesPage({ role }: { role: UserRole }) {
               </div>
             )}
 
-            {activeTab === "Upload" && (
-              <section className="space-y-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-                <div>
-                  <h2 className="text-sm font-semibold">Upload brand guidelines</h2>
-                  <p className="mt-1 text-[11px] text-slate-500">
-                    Plain text, Markdown, a PDF with a text layer, or a Word (.docx) file. Scanned PDFs and
-                    password-protected PDFs are not supported.
-                  </p>
-                </div>
-
-                <label className="block text-[11px] font-medium text-slate-600">
-                  Guideline category
-                  <select
-                    value={uploadCategory}
-                    onChange={(event) => setUploadCategory(event.target.value)}
-                    disabled={uploading}
-                    className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs"
-                  >
-                    {categories.map((category) => (
-                      <option key={category} value={category}>{category}</option>
-                    ))}
-                  </select>
-                </label>
-
-                <div
-                  onDragOver={(event) => event.preventDefault()}
-                  onDrop={(event) => {
-                    event.preventDefault();
-                    void startUpload(event.dataTransfer.files?.[0]);
-                  }}
-                  className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-200 p-8 text-center"
-                >
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept=".txt,.md,.pdf,.docx"
-                    aria-label="Choose a guideline file"
-                    className="sr-only"
-                    onChange={(event) => void startUpload(event.target.files?.[0])}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={uploading}
-                    className="focus-ring inline-flex h-9 items-center gap-2 rounded-lg bg-[#2F5BEA] px-3 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
-                  >
-                    <Upload size={14} aria-hidden="true" />
-                    Choose a file
-                  </button>
-                  <p className="mt-3 text-[10px] text-slate-400">
-                    .txt, .md, .pdf, .docx · up to {UPLOAD_LIMIT_MB.text} MB for text, {UPLOAD_LIMIT_MB.binary} MB for PDF and Word
-                  </p>
-                </div>
-
-                {uploadFile && (
-                  <p className="flex items-center gap-2 text-xs text-slate-700">
-                    {uploading && <Loader2 size={14} className="animate-spin" aria-hidden="true" />}
-                    <span className="truncate font-medium">{uploadFile.name}</span>
-                    <span className="text-slate-500">{uploading ? "Saving and reading the file…" : ""}</span>
-                  </p>
-                )}
-
-                {uploadError && (
-                  <div role="alert" className="flex items-start justify-between gap-2 rounded-lg border border-red-100 bg-red-50 p-3 text-[11px] text-red-700">
-                    <span>{uploadError}</span>
-                    <button onClick={() => setUploadError("")} className="font-semibold underline">Dismiss</button>
-                  </div>
-                )}
-
-                <div className="flex items-start gap-2 rounded-lg bg-blue-50/70 p-3">
-                  <Info size={15} className="mt-0.5 shrink-0 text-blue-600" />
-                  <p className="text-[11px] leading-5 text-blue-900">
-                    After upload, the rules found in the file appear in the Drafts tab. They stay inactive until a manager approves them.
-                  </p>
-                </div>
-                {SHOW_DEV_TOOLS && (
-                  <div className="text-right">
-                    <button onClick={() => setError(true)} className="text-[10px] text-slate-400 underline decoration-dotted underline-offset-2 hover:text-slate-600">
-                      Simulate load error
-                    </button>
-                  </div>
-                )}
-              </section>
-            )}
+          
           </>
         )}
       </div>
@@ -1302,6 +1169,353 @@ export default function BrandGuidelinesPage({ role }: { role: UserRole }) {
           >
             {emptyMode ? "Exit empty state" : "Preview empty states"}
           </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+const RULE_KIND_HELP: Record<BrandRuleKind, string> = {
+  phrase: "A word or phrase that must not appear. The replacement is suggested in its place.",
+  regex: "A regular expression. Checked before saving, so an invalid pattern is refused.",
+  name_variant: "A spelling of a product or company name that must be corrected.",
+  required_text: "Text that must appear in the content, such as a disclaimer.",
+};
+
+const RULE_STATUS_FILTERS: { value: BrandRuleStatus | "all"; label: string }[] = [
+  { value: "all", label: "All" },
+  { value: "draft", label: "Draft" },
+  { value: "approved", label: "Approved" },
+  { value: "retired", label: "Retired" },
+];
+
+const RULE_STATUS_STYLE: Record<BrandRuleStatus, string> = {
+  draft: "bg-amber-50 text-amber-800",
+  approved: "bg-emerald-50 text-emerald-800",
+  retired: "bg-slate-100 text-slate-600",
+};
+
+const EMPTY_RULE_FORM: BrandRuleInput = {
+  title: "",
+  kind: "phrase",
+  pattern: "",
+  replacement: "",
+  reason: "",
+  channel: null,
+  severity: "warning",
+};
+
+function brandRuleError(error: unknown, fallback: string): string {
+  if (error instanceof ApiError) return error.message;
+  return error instanceof Error ? error.message : fallback;
+}
+
+function CheckerRulesSection({ canManage, currentUserId }: { canManage: boolean; currentUserId: string }) {
+  const [rules, setRules] = useState<BrandRule[] | null>(null);
+  const [loadError, setLoadError] = useState("");
+  const [filter, setFilter] = useState<BrandRuleStatus | "all">("all");
+  const [form, setForm] = useState<BrandRuleInput>(EMPTY_RULE_FORM);
+  const [creating, setCreating] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState<BrandRuleInput>(EMPTY_RULE_FORM);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [notice, setNotice] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
+
+  async function load() {
+    setLoadError("");
+    try {
+      setRules(await listBrandRules());
+    } catch (error: unknown) {
+      setLoadError(brandRuleError(error, "The checker rules could not be loaded."));
+    }
+  }
+
+  useEffect(() => {
+    void load();
+  }, []);
+
+  // Creators and reviewers see approved rules only. Drafts are for managers and admins.
+  const visible = useMemo(
+    () =>
+      (rules ?? [])
+        .filter((rule) => canManage || rule.status === "approved")
+        .filter((rule) => filter === "all" || rule.status === filter),
+    [rules, filter, canManage],
+  );
+
+  async function run(id: string | null, action: () => Promise<unknown>, success: string) {
+    setBusyId(id ?? "new");
+    setNotice(null);
+    try {
+      await action();
+      setNotice({ tone: "ok", text: success });
+      await load();
+    } catch (error: unknown) {
+      setNotice({ tone: "error", text: brandRuleError(error, "The change could not be saved.") });
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  function submitNew(event: FormEvent) {
+    event.preventDefault();
+    if (!form.title.trim() || !form.pattern.trim()) {
+      setNotice({ tone: "error", text: "A rule needs a title and the text it matches." });
+      return;
+    }
+    void run(
+      null,
+      async () => {
+        await createBrandRule({ ...form, title: form.title.trim(), pattern: form.pattern.trim() });
+        setForm(EMPTY_RULE_FORM);
+        setCreating(false);
+      },
+      "Draft rule created. Another manager must approve it before it is checked.",
+    );
+  }
+
+  function startEdit(rule: BrandRule) {
+    setEditingId(rule.id);
+    setEditDraft({
+      title: rule.title,
+      kind: rule.kind,
+      pattern: rule.pattern,
+      replacement: rule.replacement,
+      reason: rule.reason,
+      channel: rule.channel,
+      severity: rule.severity,
+    });
+  }
+
+  function saveEdit(rule: BrandRule) {
+    void run(
+      rule.id,
+      async () => {
+        await updateBrandRule(rule.id, {
+          title: editDraft.title.trim(),
+          pattern: editDraft.pattern.trim(),
+          replacement: editDraft.replacement ?? "",
+          reason: editDraft.reason ?? "",
+          channel: editDraft.channel ?? null,
+          severity: editDraft.severity,
+        });
+        setEditingId(null);
+      },
+      "Draft saved.",
+    );
+  }
+
+  return (
+    <div className="mt-6 overflow-hidden rounded-xl border border-[#E3E8F2] bg-white shadow-sm">
+      <div className="flex flex-col gap-3 border-b border-slate-100 p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="text-sm font-semibold">Checker rules</h2>
+          <p className="mt-0.5 text-[11px] text-slate-500">
+            Rules the content checker runs. A rule is a draft until someone else approves it. Retiring a rule is final.
+          </p>
+        </div>
+        {canManage && (
+          <button
+            type="button"
+            onClick={() => {
+              setCreating((open) => !open);
+              setNotice(null);
+            }}
+            className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-[#2F5BEA] px-3 text-xs font-semibold text-white hover:bg-blue-700"
+          >
+            <Plus size={14} aria-hidden="true" />
+            New rule
+          </button>
+        )}
+      </div>
+
+      <div className="space-y-4 p-4">
+        {notice && (
+          <div
+            role={notice.tone === "error" ? "alert" : "status"}
+            className={cn(
+              "flex items-start justify-between gap-2 rounded-lg border p-3 text-xs",
+              notice.tone === "error" ? "border-red-100 bg-red-50 text-red-700" : "border-emerald-100 bg-emerald-50 text-emerald-800",
+            )}
+          >
+            <span>{notice.text}</span>
+            <button onClick={() => setNotice(null)} aria-label="Dismiss" className="shrink-0">
+              <X size={14} aria-hidden="true" />
+            </button>
+          </div>
+        )}
+
+        {canManage && creating && (
+          <form onSubmit={submitNew} className="grid gap-3 rounded-xl border border-slate-200 bg-white p-4 sm:grid-cols-2">
+            <label className="text-[11px] font-medium text-slate-600">
+              Title
+              <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className="mt-1 h-9 w-full rounded-lg border border-slate-200 px-2 text-xs" />
+            </label>
+            <label className="text-[11px] font-medium text-slate-600">
+              Kind
+              <select value={form.kind} onChange={(e) => setForm({ ...form, kind: e.target.value as BrandRuleKind })} className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs">
+                <option value="phrase">Banned phrase</option>
+                <option value="regex">Pattern (regex)</option>
+                <option value="name_variant">Name variant</option>
+                <option value="required_text">Required text</option>
+              </select>
+              <span className="mt-1 block text-[10px] font-normal text-slate-500">{RULE_KIND_HELP[form.kind]}</span>
+            </label>
+            <label className="text-[11px] font-medium text-slate-600 sm:col-span-2">
+              Text to match
+              <input value={form.pattern} onChange={(e) => setForm({ ...form, pattern: e.target.value })} className="mt-1 h-9 w-full rounded-lg border border-slate-200 px-2 font-mono text-xs" />
+            </label>
+            <label className="text-[11px] font-medium text-slate-600">
+              Use instead
+              <input value={form.replacement ?? ""} onChange={(e) => setForm({ ...form, replacement: e.target.value })} className="mt-1 h-9 w-full rounded-lg border border-slate-200 px-2 text-xs" />
+            </label>
+            <label className="text-[11px] font-medium text-slate-600">
+              Reason
+              <input value={form.reason ?? ""} onChange={(e) => setForm({ ...form, reason: e.target.value })} className="mt-1 h-9 w-full rounded-lg border border-slate-200 px-2 text-xs" />
+            </label>
+            <label className="text-[11px] font-medium text-slate-600">
+              Channel
+              <select value={form.channel ?? ""} onChange={(e) => setForm({ ...form, channel: (e.target.value || null) as BrandRuleChannel | null })} className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs">
+                <option value="">All channels</option>
+                <option value="Website">Website</option>
+                <option value="Instagram">Instagram</option>
+                <option value="Email">Email</option>
+                <option value="Ad">Ad</option>
+              </select>
+            </label>
+            <label className="text-[11px] font-medium text-slate-600">
+              Severity
+              <select value={form.severity} onChange={(e) => setForm({ ...form, severity: e.target.value as BrandRuleSeverity })} className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs">
+                <option value="critical">Critical</option>
+                <option value="warning">Warning</option>
+                <option value="info">Info</option>
+              </select>
+            </label>
+            <div className="flex gap-2 sm:col-span-2">
+              <button type="submit" disabled={busyId !== null} className="h-9 rounded-lg bg-[#2F5BEA] px-3 text-xs font-semibold text-white disabled:opacity-50">Save draft</button>
+              <button type="button" onClick={() => setCreating(false)} className="h-9 rounded-lg border border-slate-200 px-3 text-xs font-semibold text-slate-600">Cancel</button>
+            </div>
+          </form>
+        )}
+
+        <div role="tablist" aria-label="Filter checker rules by status" className="flex flex-wrap gap-2">
+          {RULE_STATUS_FILTERS.map((item) => (
+            <button
+              key={item.value}
+              role="tab"
+              aria-selected={filter === item.value}
+              onClick={() => setFilter(item.value)}
+              className={cn(
+                "h-8 rounded-full border px-3 text-[11px] font-semibold",
+                filter === item.value ? "border-blue-200 bg-blue-50 text-blue-700" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50",
+              )}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+
+        {loadError ? (
+          <div role="alert" className="flex items-center justify-between gap-2 rounded-lg border border-red-100 bg-red-50 p-3 text-xs text-red-700">
+            <span>{loadError}</span>
+            <button onClick={() => void load()} className="font-semibold underline">Try again</button>
+          </div>
+        ) : rules === null ? (
+          <p className="text-xs text-slate-500">Loading checker rules…</p>
+        ) : visible.length === 0 ? (
+          <p className="text-xs text-slate-500">No checker rules here.</p>
+        ) : (
+          <ul className="space-y-2">
+            {visible.map((rule) => {
+              const isOwnRule = rule.createdBy === currentUserId;
+              const isEditing = canManage && editingId === rule.id;
+              return (
+                <li key={rule.id} className="rounded-lg border border-slate-200 p-3">
+                  {isEditing ? (
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <label className="text-[11px] font-medium text-slate-600">
+                        Title
+                        <input value={editDraft.title} onChange={(e) => setEditDraft({ ...editDraft, title: e.target.value })} className="mt-1 h-9 w-full rounded-lg border border-slate-200 px-2 text-xs" />
+                      </label>
+                      <label className="text-[11px] font-medium text-slate-600">
+                        Text to match
+                        <input value={editDraft.pattern} onChange={(e) => setEditDraft({ ...editDraft, pattern: e.target.value })} className="mt-1 h-9 w-full rounded-lg border border-slate-200 px-2 font-mono text-xs" />
+                      </label>
+                      <label className="text-[11px] font-medium text-slate-600">
+                        Use instead
+                        <input value={editDraft.replacement ?? ""} onChange={(e) => setEditDraft({ ...editDraft, replacement: e.target.value })} className="mt-1 h-9 w-full rounded-lg border border-slate-200 px-2 text-xs" />
+                      </label>
+                      <label className="text-[11px] font-medium text-slate-600">
+                        Reason
+                        <input value={editDraft.reason ?? ""} onChange={(e) => setEditDraft({ ...editDraft, reason: e.target.value })} className="mt-1 h-9 w-full rounded-lg border border-slate-200 px-2 text-xs" />
+                      </label>
+                      <div className="flex gap-2 sm:col-span-2">
+                        <button type="button" disabled={busyId !== null} onClick={() => saveEdit(rule)} className="h-8 rounded-md bg-[#2F5BEA] px-3 text-[11px] font-semibold text-white disabled:opacity-50">Save</button>
+                        <button type="button" onClick={() => setEditingId(null)} className="h-8 rounded-md border border-slate-200 px-3 text-[11px] font-semibold text-slate-600">Cancel</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-mono text-[10px] text-slate-400">{rule.id}</span>
+                          <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-semibold capitalize", RULE_STATUS_STYLE[rule.status])}>{rule.status}</span>
+                          <span className="text-[11px] text-slate-500">
+                            {rule.kind.replace("_", " ")} · {rule.channel ?? "All channels"} · {rule.severity}
+                          </span>
+                        </div>
+                        <h3 className="mt-1 text-xs font-semibold text-slate-800">{rule.title}</h3>
+                        <p className="mt-0.5 font-mono text-[11px] text-slate-600">
+                          {rule.pattern}
+                          {rule.replacement && <span className="font-sans text-slate-500"> → {rule.replacement}</span>}
+                        </p>
+                        {rule.reason && <p className="mt-0.5 text-[11px] text-slate-500">{rule.reason}</p>}
+                        <p className="mt-1 text-[10px] text-slate-400">
+                          Created by {rule.createdBy}
+                          {rule.approvedBy && <> · approved by {rule.approvedBy}</>}
+                        </p>
+                      </div>
+
+                      {canManage && (
+                        <div className="flex shrink-0 flex-wrap gap-2">
+                          {rule.status === "draft" && (
+                            <>
+                              <button type="button" onClick={() => startEdit(rule)} disabled={busyId !== null} className="inline-flex h-8 items-center gap-1.5 rounded-md border border-slate-200 px-2.5 text-[11px] font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50">
+                                <Pencil size={12} aria-hidden="true" /> Edit
+                              </button>
+                              <button
+                                type="button"
+                                disabled={busyId !== null || isOwnRule}
+                                title={isOwnRule ? "You created this rule. Another manager must approve it." : undefined}
+                                onClick={() => void run(rule.id, () => approveBrandRule(rule.id), "Rule approved. It is now checked.")}
+                                className="inline-flex h-8 items-center gap-1.5 rounded-md bg-emerald-600 px-2.5 text-[11px] font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+                              >
+                                <Check size={12} aria-hidden="true" /> Approve
+                              </button>
+                            </>
+                          )}
+                          {rule.status === "approved" && (
+                            <button
+                              type="button"
+                              disabled={busyId !== null}
+                              onClick={() => {
+                                if (window.confirm("Retire this rule? It will stop being checked, and retiring cannot be undone.")) {
+                                  void run(rule.id, () => retireBrandRule(rule.id), "Rule retired. It is no longer checked.");
+                                }
+                              }}
+                              className="inline-flex h-8 items-center gap-1.5 rounded-md border border-red-200 px-2.5 text-[11px] font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50"
+                            >
+                              <Undo2 size={12} aria-hidden="true" /> Retire
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
         )}
       </div>
     </div>
