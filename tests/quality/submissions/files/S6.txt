@@ -1,0 +1,2 @@
+Hook: Our customer Maria says her acne is gone.
+Say: Dot & Key is gentle on skin.

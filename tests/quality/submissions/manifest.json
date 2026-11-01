@@ -1,0 +1,401 @@
+{
+  "version": 1,
+  "note": "Gold answers for 30 test submissions. Images are synthetic. Guideline ids are from the seed (01_foundation.sql).",
+  "counts": {
+    "script": 6,
+    "marketing_idea": 6,
+    "design": 9,
+    "image": 9
+  },
+  "terms": [
+    "Project Nightingale"
+  ],
+  "submissions": [
+    {
+      "id": "S1",
+      "kind": "script",
+      "file": "files/S1.txt",
+      "expected": [],
+      "holdExpected": false,
+      "note": "clean script"
+    },
+    {
+      "id": "S2",
+      "kind": "script",
+      "file": "files/S2.txt",
+      "expected": [
+        {
+          "guidelineId": "G-001",
+          "mustMention": [
+            "all wrinkles",
+            "removes all"
+          ]
+        }
+      ],
+      "holdExpected": false,
+      "note": "absolute claim"
+    },
+    {
+      "id": "S3",
+      "kind": "script",
+      "file": "files/S3.txt",
+      "expected": [
+        {
+          "guidelineId": "G-012",
+          "mustMention": [
+            "cures",
+            "sunburn"
+          ]
+        }
+      ],
+      "holdExpected": false,
+      "note": "medical claim"
+    },
+    {
+      "id": "S4",
+      "kind": "script",
+      "file": "files/S4.txt",
+      "expected": [
+        {
+          "guidelineId": "G-013",
+          "mustMention": [
+            "BrandX"
+          ]
+        }
+      ],
+      "holdExpected": false,
+      "note": "competitor name"
+    },
+    {
+      "id": "S5",
+      "kind": "script",
+      "file": "files/S5.txt",
+      "expected": [
+        {
+          "guidelineId": "G-002",
+          "mustMention": [
+            "best"
+          ]
+        }
+      ],
+      "holdExpected": false,
+      "note": "unsupported superlative"
+    },
+    {
+      "id": "S6",
+      "kind": "script",
+      "file": "files/S6.txt",
+      "expected": [
+        {
+          "guidelineId": "G-014",
+          "mustMention": [
+            "Maria"
+          ]
+        }
+      ],
+      "holdExpected": false,
+      "note": "testimonial without consent note"
+    },
+    {
+      "id": "M1",
+      "kind": "marketing_idea",
+      "file": "files/M1.txt",
+      "expected": [],
+      "holdExpected": false,
+      "note": "clean idea"
+    },
+    {
+      "id": "M2",
+      "kind": "marketing_idea",
+      "file": "files/M2.txt",
+      "expected": [
+        {
+          "guidelineId": "G-010",
+          "mustMention": [
+            "50%"
+          ]
+        }
+      ],
+      "holdExpected": false,
+      "note": "offer without an approved fact"
+    },
+    {
+      "id": "M3",
+      "kind": "marketing_idea",
+      "file": "files/M3.txt",
+      "expected": [],
+      "holdExpected": true,
+      "note": "confidential launch name"
+    },
+    {
+      "id": "M4",
+      "kind": "marketing_idea",
+      "file": "files/M4.txt",
+      "expected": [
+        {
+          "guidelineId": "G-009",
+          "mustMention": [
+            "unreleased"
+          ]
+        }
+      ],
+      "holdExpected": false,
+      "note": "unreleased product"
+    },
+    {
+      "id": "M5",
+      "kind": "marketing_idea",
+      "file": "files/M5.txt",
+      "expected": [
+        {
+          "guidelineId": "G-013",
+          "mustMention": [
+            "CompetitorCo"
+          ]
+        }
+      ],
+      "holdExpected": false,
+      "note": "competitor name"
+    },
+    {
+      "id": "M6",
+      "kind": "marketing_idea",
+      "file": "files/M6.txt",
+      "expected": [],
+      "holdExpected": false,
+      "note": "clean idea"
+    },
+    {
+      "id": "D1",
+      "kind": "design",
+      "file": "files/D1.png",
+      "expected": [],
+      "holdExpected": false,
+      "note": "clean product panel"
+    },
+    {
+      "id": "D2",
+      "kind": "design",
+      "file": "files/D2.png",
+      "expected": [
+        {
+          "guidelineId": "G-012",
+          "mustMention": [
+            "cures",
+            "sunburn"
+          ]
+        }
+      ],
+      "holdExpected": false,
+      "note": "medical claim printed on panel"
+    },
+    {
+      "id": "D3",
+      "kind": "design",
+      "file": "files/D3.png",
+      "expected": [
+        {
+          "guidelineId": "G-001",
+          "mustMention": [
+            "100%",
+            "guaranteed"
+          ]
+        }
+      ],
+      "holdExpected": false,
+      "note": "absolute claim printed"
+    },
+    {
+      "id": "D4",
+      "kind": "design",
+      "file": "files/D4.png",
+      "expected": [
+        {
+          "guidelineId": "G-002",
+          "mustMention": [
+            "best"
+          ]
+        }
+      ],
+      "holdExpected": false,
+      "note": "superlative printed"
+    },
+    {
+      "id": "D5",
+      "kind": "design",
+      "file": "files/D5.png",
+      "expected": [
+        {
+          "guidelineId": "G-004",
+          "mustMention": [
+            "results",
+            "2 weeks"
+          ]
+        }
+      ],
+      "holdExpected": false,
+      "note": "results claim without disclaimer"
+    },
+    {
+      "id": "D6",
+      "kind": "design",
+      "file": "files/D6.png",
+      "expected": [
+        {
+          "guidelineId": "G-007",
+          "mustMention": [
+            "contrast"
+          ]
+        }
+      ],
+      "holdExpected": false,
+      "note": "very low contrast text"
+    },
+    {
+      "id": "D7",
+      "kind": "design",
+      "file": "files/D7.png",
+      "expected": [
+        {
+          "guidelineId": "G-013",
+          "mustMention": [
+            "BrandX"
+          ]
+        }
+      ],
+      "holdExpected": false,
+      "note": "competitor name printed"
+    },
+    {
+      "id": "D8",
+      "kind": "design",
+      "file": "files/D8.png",
+      "expected": [],
+      "holdExpected": true,
+      "note": "confidential name printed on panel"
+    },
+    {
+      "id": "D9",
+      "kind": "design",
+      "file": "files/D9.png",
+      "expected": [],
+      "holdExpected": false,
+      "note": "clean design"
+    },
+    {
+      "id": "I1",
+      "kind": "image",
+      "file": "files/I1.png",
+      "expected": [],
+      "holdExpected": false,
+      "note": "clean graphic"
+    },
+    {
+      "id": "I2",
+      "kind": "image",
+      "file": "files/I2.png",
+      "expected": [
+        {
+          "guidelineId": "G-012",
+          "mustMention": [
+            "cures",
+            "acne"
+          ]
+        }
+      ],
+      "holdExpected": false,
+      "note": "medical claim"
+    },
+    {
+      "id": "I3",
+      "kind": "image",
+      "file": "files/I3.png",
+      "expected": [
+        {
+          "guidelineId": "G-001",
+          "mustMention": [
+            "guaranteed"
+          ]
+        }
+      ],
+      "holdExpected": false,
+      "note": "absolute claim"
+    },
+    {
+      "id": "I4",
+      "kind": "image",
+      "file": "files/I4.png",
+      "expected": [
+        {
+          "guidelineId": "G-014",
+          "mustMention": [
+            "Priya"
+          ]
+        }
+      ],
+      "holdExpected": false,
+      "note": "testimonial without consent"
+    },
+    {
+      "id": "I5",
+      "kind": "image",
+      "file": "files/I5.png",
+      "expected": [
+        {
+          "guidelineId": "G-007",
+          "mustMention": [
+            "contrast"
+          ]
+        }
+      ],
+      "holdExpected": false,
+      "note": "low contrast"
+    },
+    {
+      "id": "I6",
+      "kind": "image",
+      "file": "files/I6.png",
+      "expected": [
+        {
+          "guidelineId": "G-009",
+          "mustMention": [
+            "unreleased"
+          ]
+        }
+      ],
+      "holdExpected": false,
+      "note": "unreleased product"
+    },
+    {
+      "id": "I7",
+      "kind": "image",
+      "file": "files/I7.png",
+      "expected": [],
+      "holdExpected": false,
+      "note": "clean graphic"
+    },
+    {
+      "id": "I8",
+      "kind": "image",
+      "file": "files/I8.png",
+      "expected": [
+        {
+          "guidelineId": "G-010",
+          "mustMention": [
+            "50%"
+          ]
+        }
+      ],
+      "holdExpected": false,
+      "note": "offer without approved fact"
+    },
+    {
+      "id": "I9",
+      "kind": "image",
+      "file": "files/I9.png",
+      "expected": [],
+      "holdExpected": true,
+      "note": "confidential name in image"
+    }
+  ]
+}
