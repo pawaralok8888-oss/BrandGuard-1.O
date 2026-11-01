@@ -42,7 +42,7 @@ import {
   XCircle,
 } from "lucide-react";
 
-type Tab = "Rules" | "Drafts" | "Glossary" | "Brand Assets" | "Upload";
+type Tab = "Rules" | "Drafts" | "Glossary" | "Brand Assets";
 
 const UPLOAD_LIMIT_MB = { text: 1, binary: 10 } as const;
 type Severity = "Critical" | "High" | "Medium" | "Low";
@@ -425,7 +425,7 @@ export default function BrandGuidelinesPage({ role }: { role: UserRole }) {
   }
 
   const tabs: Tab[] = canEdit
-    ? ["Rules", "Drafts", "Glossary", "Brand Assets", "Upload"]
+    ? ["Rules", "Drafts", "Glossary", "Brand Assets"]
     : ["Rules", "Glossary", "Brand Assets"];
 
   return (
@@ -961,90 +961,7 @@ export default function BrandGuidelinesPage({ role }: { role: UserRole }) {
               </div>
             )}
 
-            {activeTab === "Upload" && (
-              <section className="space-y-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-                <div>
-                  <h2 className="text-sm font-semibold">Upload brand guidelines</h2>
-                  <p className="mt-1 text-[11px] text-slate-500">
-                    Plain text, Markdown, a PDF with a text layer, or a Word (.docx) file. Scanned PDFs and
-                    password-protected PDFs are not supported.
-                  </p>
-                </div>
-
-                <label className="block text-[11px] font-medium text-slate-600">
-                  Guideline category
-                  <select
-                    value={uploadCategory}
-                    onChange={(event) => setUploadCategory(event.target.value)}
-                    disabled={uploading}
-                    className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs"
-                  >
-                    {categories.map((category) => (
-                      <option key={category} value={category}>{category}</option>
-                    ))}
-                  </select>
-                </label>
-
-                <div
-                  onDragOver={(event) => event.preventDefault()}
-                  onDrop={(event) => {
-                    event.preventDefault();
-                    void startUpload(event.dataTransfer.files?.[0]);
-                  }}
-                  className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-200 p-8 text-center"
-                >
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept=".txt,.md,.pdf,.docx"
-                    aria-label="Choose a guideline file"
-                    className="sr-only"
-                    onChange={(event) => void startUpload(event.target.files?.[0])}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={uploading}
-                    className="focus-ring inline-flex h-9 items-center gap-2 rounded-lg bg-[#2F5BEA] px-3 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
-                  >
-                    <Upload size={14} aria-hidden="true" />
-                    Choose a file
-                  </button>
-                  <p className="mt-3 text-[10px] text-slate-400">
-                    .txt, .md, .pdf, .docx · up to {UPLOAD_LIMIT_MB.text} MB for text, {UPLOAD_LIMIT_MB.binary} MB for PDF and Word
-                  </p>
-                </div>
-
-                {uploadFile && (
-                  <p className="flex items-center gap-2 text-xs text-slate-700">
-                    {uploading && <Loader2 size={14} className="animate-spin" aria-hidden="true" />}
-                    <span className="truncate font-medium">{uploadFile.name}</span>
-                    <span className="text-slate-500">{uploading ? "Saving and reading the file…" : ""}</span>
-                  </p>
-                )}
-
-                {uploadError && (
-                  <div role="alert" className="flex items-start justify-between gap-2 rounded-lg border border-red-100 bg-red-50 p-3 text-[11px] text-red-700">
-                    <span>{uploadError}</span>
-                    <button onClick={() => setUploadError("")} className="font-semibold underline">Dismiss</button>
-                  </div>
-                )}
-
-                <div className="flex items-start gap-2 rounded-lg bg-blue-50/70 p-3">
-                  <Info size={15} className="mt-0.5 shrink-0 text-blue-600" />
-                  <p className="text-[11px] leading-5 text-blue-900">
-                    After upload, the rules found in the file appear in the Drafts tab. They stay inactive until a manager approves them.
-                  </p>
-                </div>
-                {SHOW_DEV_TOOLS && (
-                  <div className="text-right">
-                    <button onClick={() => setError(true)} className="text-[10px] text-slate-400 underline decoration-dotted underline-offset-2 hover:text-slate-600">
-                      Simulate load error
-                    </button>
-                  </div>
-                )}
-              </section>
-            )}
+          
           </>
         )}
       </div>
