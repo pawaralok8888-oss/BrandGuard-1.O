@@ -38,3 +38,18 @@ export type BrandSource = {
 };
 export type ContentItem = { id: string; title: string; channel: "Website" | "Instagram" | "Paid ad" | "Email"; owner: string; updatedAt: string; status: ContentStatus; findingCount: number; severity?: Finding["severity"] };
 export type BrandAlert = { id: string; factId: string; title: string; oldValue: string; newValue: string; affectedCount: number; createdAt: string; status: "New" | "In progress" | "Resolved" };
+export type InsightStatus = "draft" | "approved" | "rejected";
+
+export interface GuidelineInsight {
+  id: string;
+  fieldId: string;
+  fieldLabel: string;
+  categoryId: string;
+  value: string;
+  evidence: string;
+  confidence: number;
+  status: InsightStatus;
+  documentId: string;
+  reviewedBy: string | null;
+  reviewedAt: string | null;
+}

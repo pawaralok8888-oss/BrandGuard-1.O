@@ -1,7 +1,7 @@
 
 import { SHOW_DEV_TOOLS } from "@/lib/devTools";
-import type { UserRole } from "@/types";
-import { DraftRulesPanel, type UploadSummary } from "@/components/guidelines/DraftRulesPanel";
+import type { GuidelineInsight, UserRole } from "@/types";
+import { MOCK_APPROVED_INSIGHTS, MOCK_DRAFT_INSIGHTS, USE_MOCK_INSIGHTS } from "@/mocks/guidelines";
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -27,7 +27,7 @@ import {
   type BrandRuleSeverity,
   type BrandRuleStatus,
 } from "@/api/brandRules";
-import { ApiError } from "@/api/client";
+import { ApiError, apiRequest } from "@/api/client";
 import { cn } from "@/lib/utils";
 import {
   AlertCircle,
@@ -58,7 +58,7 @@ import {
   XCircle,
 } from "lucide-react";
 
-type Tab = "Rules" | "Drafts" | "Glossary" | "Brand Assets";
+type Tab = "Rules" | "Insights" | "Glossary" | "Brand Assets";
 
 type Severity = "Critical" | "High" | "Medium" | "Low";
 type Rule = {
@@ -197,7 +197,6 @@ export default function BrandGuidelinesPage({ role, currentUserId }: { role: Use
   const [error, setError] = useState(false);
   const [emptyMode, setEmptyMode] = useState(false);
   const [categories, setCategories] = useState<string[]>([]);
-  const [uploadSummary, setUploadSummary] = useState<UploadSummary | null>(null);
   const navigate = useNavigate();
 
   async function loadGuidelinesData() {
@@ -385,9 +384,7 @@ export default function BrandGuidelinesPage({ role, currentUserId }: { role: Use
     setToast("Suggested wording applied.");
   }
 
-  const tabs: Tab[] = canEdit
-    ? ["Rules", "Drafts", "Glossary", "Brand Assets"]
-    : ["Rules", "Glossary", "Brand Assets"];
+  const tabs: Tab[] = ["Rules", "Insights", "Glossary", "Brand Assets"];
 
   return (
     <div className="min-h-screen bg-[#F6F8FC] text-[#14213D]">
@@ -685,9 +682,7 @@ export default function BrandGuidelinesPage({ role, currentUserId }: { role: Use
               </section>
             )}
 
-            {activeTab === "Drafts" && (
-              <DraftRulesPanel summary={uploadSummary} onChanged={() => void loadGuidelinesData()} />
-            )}
+            {activeTab === "Insights" && <InsightsPanel canManage={canEdit} />}
             {activeTab === "Glossary" && (
               <section className="overflow-hidden rounded-xl border border-[#E3E8F2] bg-white shadow-sm">
                 <div className="flex flex-col gap-3 border-b border-slate-100 p-4 sm:flex-row sm:items-center sm:justify-between">
@@ -1519,5 +1514,107 @@ function CheckerRulesSection({ canManage, currentUserId }: { canManage: boolean;
         )}
       </div>
     </div>
+  );
+}
+function InsightsPanel({ canManage }: { canManage: boolean }) {
+  const navigate = useNavigate();
+  const [view, setView] = useState<"approved" | "draft">("approved");
+  const [items, setItems] = useState<GuidelineInsight[] | null>(null);
+  const [loadError, setLoadError] = useState("");
+
+  // The toggle only renders for managers, so creators and reviewers always load approved insights.
+  useEffect(() => {
+    let cancelled = false;
+    setItems(null);
+    setLoadError("");
+    const request = USE_MOCK_INSIGHTS
+      ? Promise.resolve(view === "approved" ? MOCK_APPROVED_INSIGHTS : MOCK_DRAFT_INSIGHTS)
+      : apiRequest<GuidelineInsight[]>(`/api/intake/insights?status=${view}`);
+    request
+      .then((data) => {
+        if (!cancelled) setItems(data);
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) setLoadError(error instanceof Error ? error.message : "The insights could not be loaded.");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [view]);
+
+  return (
+    <section className="overflow-hidden rounded-xl border border-[#E3E8F2] bg-white shadow-sm">
+      <div className="flex flex-col gap-3 border-b border-slate-100 p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="text-sm font-semibold">Insights from uploaded guidelines</h2>
+          <p className="mt-1 text-[11px] text-slate-500">
+            {canManage
+              ? "Review and approve drafts on Brand Intake."
+              : "Approved brand guidelines. Only managers and admins can add or change them."}
+          </p>
+        </div>
+        {canManage && (
+          <div className="flex flex-wrap items-center gap-2">
+            <div role="tablist" aria-label="Insight status" className="flex gap-2">
+              {(["approved", "draft"] as const).map((item) => (
+                <button
+                  key={item}
+                  role="tab"
+                  aria-selected={view === item}
+                  onClick={() => setView(item)}
+                  className={`h-8 rounded-full border px-3 text-[11px] font-semibold capitalize ${
+                    view === item
+                      ? "border-blue-200 bg-blue-50 text-blue-700"
+                      : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                  }`}
+                >
+                  {item}
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={() => navigate("/intake")}
+              className="h-8 rounded-lg border border-slate-200 px-3 text-[11px] font-semibold text-slate-600 hover:bg-slate-50"
+            >
+              Open Brand Intake
+            </button>
+          </div>
+        )}
+      </div>
+
+      <div className="p-4">
+        {loadError ? (
+          <p role="alert" className="text-xs text-red-700">{loadError}</p>
+        ) : items === null ? (
+          <p className="text-xs text-slate-500">Loading insights…</p>
+        ) : items.length === 0 ? (
+          <p className="text-xs text-slate-500">
+            {view === "approved" ? "No approved insights yet." : "No draft insights waiting for review."}
+          </p>
+        ) : (
+          <ul className="divide-y divide-slate-100">
+            {items.map((insight) => (
+              <li key={insight.id} className="py-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-xs font-semibold text-slate-800">{insight.fieldLabel}</span>
+                  <span className="text-[10px] text-slate-500">{insight.categoryId.replace(/_/g, " ")}</span>
+                  <span className="text-[10px] text-slate-400">{Math.round(insight.confidence * 100)}% confidence</span>
+                </div>
+                <p className="mt-1 text-xs text-slate-700">{insight.value}</p>
+                <blockquote className="mt-2 border-l-2 border-slate-200 pl-3 text-[11px] italic text-slate-500">
+                  &ldquo;{insight.evidence}&rdquo;
+                </blockquote>
+                <p className="mt-1 text-[10px] text-slate-400">
+                  From {insight.documentId}
+                  {insight.reviewedBy && <> · approved by {insight.reviewedBy}</>}
+                  {insight.reviewedAt && <> · {new Date(insight.reviewedAt).toLocaleDateString()}</>}
+                </p>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </section>
   );
 }
