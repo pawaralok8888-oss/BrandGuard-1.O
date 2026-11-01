@@ -3,6 +3,7 @@ import { SHOW_DEV_TOOLS } from "@/lib/devTools";
 import type { UserRole } from "@/types";
 import { DraftRulesPanel, type UploadSummary } from "@/components/guidelines/DraftRulesPanel";
 import { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   getGuidelines,
   getGuidelineVersions,
@@ -186,6 +187,7 @@ export default function BrandGuidelinesPage({ role }: { role: UserRole }) {
   const [categories, setCategories] = useState<string[]>([]);
   const [uploadSummary, setUploadSummary] = useState<UploadSummary | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const navigate = useNavigate();
 
   const [uploadError, setUploadError] = useState("");
 
@@ -446,18 +448,6 @@ export default function BrandGuidelinesPage({ role }: { role: UserRole }) {
               <CheckCircle2 size={13} />
               Guidelines active
             </span>
-            {canEdit && (
-              <button
-                onClick={() => {
-                  setActiveTab("Upload");
-                  setUploadFile(null);
-                }}
-                className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#2F5BEA] px-3 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2"
-              >
-                <Upload size={15} />
-                Upload guidelines
-              </button>
-            )}
           </div>
         </header>
 
@@ -833,10 +823,8 @@ export default function BrandGuidelinesPage({ role }: { role: UserRole }) {
                       <p className="mt-1 text-[11px] text-slate-500">Use approved logo files for all branded materials.</p>
                     </div>
                     <button
-                      onClick={() => {
-                        setActiveTab("Upload");
-                        setToast("Upload a guideline or asset file to add a new asset.");
-                      }}
+                    onClick={() => setToast("Brand assets are added on the Brand Intake page.")}
+                      
                       className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-slate-200 px-3 text-xs font-medium text-slate-600 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-400"
                     >
                       <Plus size={14} />
@@ -847,8 +835,8 @@ export default function BrandGuidelinesPage({ role }: { role: UserRole }) {
                     <EmptyState
                       title="No logos yet"
                       description="Upload approved logo files to make them available to your team."
-                      action="Upload asset"
-                      onAction={() => setActiveTab("Upload")}
+                      action="Go to Brand Intake"
+                      onAction={() => navigate("/intake")}
                     />
                   ) : (
                     <div className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-2 xl:grid-cols-3">
