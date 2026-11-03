@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { listContent, type ContentRecord } from "@/api/content";
+import { deleteContent, listContent, type ContentRecord } from "@/api/content";
 import {
   Search,
   Plus,
@@ -16,6 +16,7 @@ import {
   CheckCircle2,
   X,
   RotateCcw,
+  Trash2,
 } from "lucide-react";
 import { LoadingState } from "@/components/shared/LoadingState";
 import { ErrorState } from "@/components/shared/ErrorState";
@@ -26,7 +27,7 @@ type Status = "Draft" | "Checked" | "Fixing" | "In Review" | "Changes requested"
 type ContentItem = {
   id: string;
   title: string;
-    channel: "General" | "Website" | "Instagram" | "Email" | "Ad";
+  channel: "General" | "Website" | "Instagram" | "Email" | "Ad";
   status: Status;
   owner: string;
   initials: string;
@@ -206,6 +207,17 @@ export default function ContentPage() {
     };
     setItems((current) => [copy, ...current]);
     setNotice("Content duplicated as a new draft.");
+  }
+
+  async function removeItem(item: ContentItem) {
+    if (!window.confirm(`Delete "${item.title}"? This cannot be undone.`)) return;
+    try {
+      if (!item.id.startsWith("local_")) await deleteContent(item.id);
+      setItems((current) => current.filter((c) => c.id !== item.id));
+      setNotice("Content deleted.");
+    } catch (err) {
+      setNotice(err instanceof Error ? err.message : "Could not delete content.");
+    }
   }
 
   function resetFilters() {
@@ -400,9 +412,14 @@ export default function ContentPage() {
                   <span className="shrink-0 text-[10px] text-slate-400">{item.edited}</span>
                 </div>
 
-                <button onClick={() => openContent(item)} className="w-full min-h-[40px] sm:min-h-[36px] rounded-lg border border-[#E3E8F2] py-2 text-xs font-semibold text-slate-700 hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700">
-                  Open content
-                </button>
+                <div className="flex gap-2">
+                  <button onClick={() => openContent(item)} className="min-h-[40px] sm:min-h-[36px] flex-1 rounded-lg border border-[#E3E8F2] py-2 text-xs font-semibold text-slate-700 hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700">
+                    Open content
+                  </button>
+                  <button onClick={() => void removeItem(item)} aria-label={`Delete ${item.title}`} className="inline-flex min-h-[40px] sm:min-h-[36px] items-center gap-1.5 rounded-lg border border-red-200 px-3 text-xs font-semibold text-red-600 hover:bg-red-50">
+                    <Trash2 size={13} /> Delete
+                  </button>
+                </div>
               </div>
             </article>
           ))}
@@ -464,6 +481,9 @@ export default function ContentPage() {
                       </button>
                       <button onClick={(event) => { event.stopPropagation(); duplicateItem(item); }} title="Duplicate" aria-label={`Duplicate ${item.title}`} className="rounded-md p-2 text-slate-500 hover:bg-blue-50 hover:text-blue-700 min-h-[36px] min-w-[36px] flex items-center justify-center">
                         <Copy size={14} />
+                      </button>
+                      <button onClick={(event) => { event.stopPropagation(); void removeItem(item); }} title="Delete" aria-label={`Delete ${item.title}`} className="rounded-md p-2 text-red-500 hover:bg-red-50 min-h-[36px] min-w-[36px] flex items-center justify-center">
+                        <Trash2 size={14} />
                       </button>
                     </div>
                   </td>

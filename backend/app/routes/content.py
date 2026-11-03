@@ -1,5 +1,5 @@
 from __future__ import annotations
-
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from typing import Literal
 from uuid import uuid4
 
@@ -299,3 +299,18 @@ def list_revisions(
         }
         for row in rows
     ]
+@router.delete("/{content_id}", status_code=status.HTTP_204_NO_CONTENT, response_class=Response)
+def delete_content(
+    content_id: str,
+    conn: Connection = Depends(get_conn),
+    user: dict = Depends(current_user),
+) -> Response:
+    """Delete a content item. Only the owner can delete it."""
+    row = conn.execute("SELECT owner_id FROM content WHERE id = %s", (content_id,)).fetchone()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Content not found")
+    if row["owner_id"] != user["id"]:
+        raise HTTPException(status_code=403, detail="Only the owner can delete this content")
+    with conn.transaction():
+        conn.execute("DELETE FROM content WHERE id = %s", (content_id,))
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
